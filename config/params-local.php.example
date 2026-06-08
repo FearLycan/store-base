@@ -1,15 +1,22 @@
 <?php
 
-// Copy this file to params-local.php and adjust to your local environment.
+// Copy this file to params-local.php and adjust to your local/deployment environment.
 // Values here are merged on top of config/params.php and are NOT committed to the repo.
+// Each deployment (niche) overrides its secrets + brand + region here.
 return [
     'adminEmail' => 'admin@example.com',
 
-        'aliexpress.apiBaseUrl'         => 'https://api-sg.aliexpress.com/sync',
-        'aliexpress.appKey'             => '',
-        'aliexpress.appSecret'          => '',
-        'aliexpress.trackingId'         => '',
-        'aliexpress.targetCurrency'     => 'USD',
-        'aliexpress.targetLanguage'     => 'EN',
-        'aliexpress.shipToCountry'      => 'US',
+    // --- AliExpress Affiliate Open API (required) ---
+    'aliexpress.appKey'    => '',   // your app key
+    'aliexpress.appSecret' => '',   // your app secret
+    'aliexpress.trackingId'=> '',   // your affiliate tracking id (required for affiliate links)
+
+    // --- Region (per niche/market) ---
+    // 'aliexpress.targetCurrency' => 'PLN',
+    // 'aliexpress.targetLanguage' => 'PL',
+    // 'aliexpress.shipToCountry'  => 'PL',
+
+    // --- Site / niche identity ---
+    // 'site.name'  => 'My Jewelry Shop',
+    // 'site.niche' => 'jewelry',
 ];
