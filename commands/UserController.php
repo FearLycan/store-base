@@ -1,9 +1,8 @@
 <?php
 
-namespace console\controllers;
+namespace app\commands;
 
-use backend\models\User;
-use Yii;
+use app\models\User;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -113,7 +112,7 @@ class UserController extends Controller
     {
         return match (strtolower($this->role)) {
             'admin' => User::ROLE_ADMIN,
-            'user'  => User::ROLE_USER,
+            'user' => User::ROLE_USER,
             default => null,
         };
     }
