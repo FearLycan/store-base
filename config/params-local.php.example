@@ -4,4 +4,12 @@
 // Values here are merged on top of config/params.php and are NOT committed to the repo.
 return [
     'adminEmail' => 'admin@example.com',
+
+        'aliexpress.apiBaseUrl'         => 'https://api-sg.aliexpress.com/sync',
+        'aliexpress.appKey'             => '',
+        'aliexpress.appSecret'          => '',
+        'aliexpress.trackingId'         => '',
+        'aliexpress.targetCurrency'     => 'USD',
+        'aliexpress.targetLanguage'     => 'EN',
+        'aliexpress.shipToCountry'      => 'US',
 ];

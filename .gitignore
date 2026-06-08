@@ -37,3 +37,8 @@ tests/_support/_generated
 
 # local config overrides (keep the *.example templates tracked)
 /config/*-local.php
+
+/docs
+.claude
+.agents
+skills-lock.json
