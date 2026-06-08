@@ -23,9 +23,8 @@ final class AliExpressReviewScraper
     public function fetch(string $productId, string $sellerAdminSeq = '', int $pages = 1, int $pageSize = 20): array
     {
         $this->session->bootstrapForProduct($productId);
-        if ($sellerAdminSeq === '') {
-            $sellerAdminSeq = $this->session->resolveSellerAdminSeq($productId);
-        }
+        // sellerAdminSeq=0 works for the review list on current AE; a real seq is no longer
+        // present in the (CSR) product HTML, so we skip the costly resolution and default to '0'.
         if ($sellerAdminSeq === '') {
             $sellerAdminSeq = '0';
         }

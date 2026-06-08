@@ -51,7 +51,7 @@ final class ProductImporter
             $product->availability  = $core['availability'] ?? $product->availability;
             $product->rating_value     = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
             $product->rating_scale_max = isset($core['rating_scale_max']) ? (string)$core['rating_scale_max'] : $product->rating_scale_max;
-            $product->review_count  = isset($core['review_count']) ? (int)$core['review_count'] : $product->review_count;
+            $product->orders_count  = isset($core['orders_count']) ? (int)$core['orders_count'] : $product->orders_count;
             if ($detail['description'] !== null) {
                 $product->description = $detail['description'];
             }
@@ -85,7 +85,7 @@ final class ProductImporter
         $product->price = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
         $product->availability = $core['availability'] ?? $product->availability;
         $product->rating_value = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
-        $product->review_count = isset($core['review_count']) ? (int)$core['review_count'] : $product->review_count;
+        $product->orders_count = isset($core['orders_count']) ? (int)$core['orders_count'] : $product->orders_count;
         $product->last_price_synced_at = time();
         $product->save(false);
     }

@@ -210,7 +210,7 @@ final class AliExpressApiClient
         $imageUrl = $this->extractString($product, ['product_main_image_url', 'main_image_url', 'image_url']);
         $currency = strtoupper($this->extractString($product, ['target_sale_price_currency', 'sale_price_currency', 'currency_code', 'currency']) ?? 'USD');
         $priceAmount = $this->extractPriceValue($product);
-        $reviewCount = $this->extractInt($product, ['lastest_volume', 'orders_count', 'review_count']);
+        $ordersVolume = $this->extractInt($product, ['lastest_volume', 'orders_count']);
         $ratingValue = $this->extractFloat($product, ['evaluate_rate', 'rating_value']);
         $affiliateUrl = $this->generateAffiliateLink($productUrl, $trackingId);
 
@@ -224,7 +224,7 @@ final class AliExpressApiClient
             'availability'     => $this->extractString($product, ['availability', 'stock_status']),
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
-            'review_count'     => $reviewCount ?? 0,
+            'orders_count'     => $ordersVolume ?? 0,
             'category_l1_id'   => $this->extractString($product, ['first_level_category_id']),
             'category_l1_name' => $this->extractString($product, ['first_level_category_name']),
             'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
@@ -239,7 +239,7 @@ final class AliExpressApiClient
         $imageUrl = $this->extractString($product, ['product_main_image_url', 'main_image_url', 'image_url']);
         $currency = strtoupper($this->extractString($product, ['target_sale_price_currency', 'sale_price_currency', 'currency_code', 'currency']) ?? 'USD');
         $priceAmount = $this->extractPriceValue($product);
-        $reviewCount = $this->extractInt($product, ['lastest_volume', 'orders_count', 'review_count']);
+        $ordersVolume = $this->extractInt($product, ['lastest_volume', 'orders_count']);
         $ratingValue = $this->extractFloat($product, ['evaluate_rate', 'rating_value']);
 
         return [
@@ -252,7 +252,7 @@ final class AliExpressApiClient
             'availability'     => $this->extractString($product, ['availability', 'stock_status']),
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
-            'review_count'     => $reviewCount ?? 0,
+            'orders_count'     => $ordersVolume ?? 0,
             'category_l1_id'   => $this->extractString($product, ['first_level_category_id']),
             'category_l1_name' => $this->extractString($product, ['first_level_category_name']),
             'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
