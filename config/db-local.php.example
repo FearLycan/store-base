@@ -1,0 +1,9 @@
+<?php
+
+// Copy this file to db-local.php and adjust to your local environment.
+// Values here are merged on top of config/db.php and are NOT committed to the repo.
+return [
+    'dsn' => 'mysql:host=localhost;dbname=yii2basic',
+    'username' => 'root',
+    'password' => '',
+];

@@ -1,0 +1,7 @@
+<?php
+
+// Copy this file to params-local.php and adjust to your local environment.
+// Values here are merged on top of config/params.php and are NOT committed to the repo.
+return [
+    'adminEmail' => 'admin@example.com',
+];

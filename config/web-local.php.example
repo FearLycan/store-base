@@ -1,0 +1,13 @@
+<?php
+
+// Copy this file to web-local.php and adjust to your local environment.
+// This array is merged on top of the $config built in config/web.php
+// and is NOT committed to the repo.
+return [
+    'components' => [
+        'request' => [
+            // Set your own local cookie validation key here.
+            'cookieValidationKey' => '',
+        ],
+    ],
+];
