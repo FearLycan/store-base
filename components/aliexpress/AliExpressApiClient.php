@@ -225,6 +225,10 @@ final class AliExpressApiClient
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
             'review_count'     => $reviewCount ?? 0,
+            'category_l1_id'   => $this->extractString($product, ['first_level_category_id']),
+            'category_l1_name' => $this->extractString($product, ['first_level_category_name']),
+            'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
+            'category_l2_name' => $this->extractString($product, ['second_level_category_name']),
         ];
     }
 
@@ -249,6 +253,10 @@ final class AliExpressApiClient
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
             'review_count'     => $reviewCount ?? 0,
+            'category_l1_id'   => $this->extractString($product, ['first_level_category_id']),
+            'category_l1_name' => $this->extractString($product, ['first_level_category_name']),
+            'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
+            'category_l2_name' => $this->extractString($product, ['second_level_category_name']),
         ];
     }
 

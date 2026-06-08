@@ -22,6 +22,27 @@ final class AliExpressLinkResolver
         return $this->resolveShortLink($normalizedUrl) ?? $normalizedUrl;
     }
 
+    public function extractStoreId(string $url): ?string
+    {
+        // https://pl.aliexpress.com/store/1102516804?... -> 1102516804
+        if (preg_match('~/store/(\d{3,})~i', $url, $matches) === 1) {
+            return $matches[1];
+        }
+
+        $query = parse_url($url, PHP_URL_QUERY);
+        if (is_string($query)) {
+            parse_str($query, $params);
+            foreach (['sellerId', 'storeId', 'shopId', 'ownerMemberId'] as $key) {
+                $candidate = $params[$key] ?? null;
+                if (is_scalar($candidate) && preg_match('~^\d{3,}$~', (string)$candidate) === 1) {
+                    return (string)$candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public function extractItemId(string $url): ?string
     {
         if (preg_match('~(?:/item/|/i/)(\d+)\.html~i', $url, $matches) === 1) {
