@@ -12,6 +12,7 @@ use yii\db\ActiveRecord;
 /**
  * @property int $id
  * @property string $external_store_id
+ * @property string|null $seller_id
  * @property string $name
  * @property string $url
  * @property string|null $seller_admin_seq
@@ -41,7 +42,7 @@ class Store extends ActiveRecord
         return [
             [['external_store_id', 'name', 'url'], 'required'],
             [['external_store_id'], 'unique'],
-            [['external_store_id', 'seller_admin_seq', 'status'], 'string', 'max' => 64],
+            [['external_store_id', 'seller_id', 'seller_admin_seq', 'status'], 'string', 'max' => 64],
             [['name'], 'string', 'max' => 255],
             [['url'], 'string', 'max' => 1024],
             [['last_discovery_at', 'last_full_sync_at', 'product_count'], 'integer'],
