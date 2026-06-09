@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\models;
 
 use app\enums\ProductStatusEnum;
+use yii\behaviors\SluggableBehavior;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
@@ -54,7 +55,16 @@ class Product extends ActiveRecord
 
     public function behaviors(): array
     {
-        return [TimestampBehavior::class];
+        return [
+            TimestampBehavior::class,
+            'sluggable' => [
+                'class' => SluggableBehavior::class,
+                'attribute' => 'title',
+                'slugAttribute' => 'slug',
+                'ensureUnique' => true,
+                'immutable' => true,
+            ],
+        ];
     }
 
     public function rules(): array

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace app\models;
 
+use yii\behaviors\SluggableBehavior;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
-use yii\helpers\Inflector;
 
 /**
  * @property int $id
@@ -30,7 +30,16 @@ class Category extends ActiveRecord
 
     public function behaviors(): array
     {
-        return [TimestampBehavior::class];
+        return [
+            TimestampBehavior::class,
+            'sluggable' => [
+                'class' => SluggableBehavior::class,
+                'attribute' => 'name',
+                'slugAttribute' => 'slug',
+                'ensureUnique' => true,
+                'immutable' => true,
+            ],
+        ];
     }
 
     public function rules(): array
@@ -59,9 +68,6 @@ class Category extends ActiveRecord
         $category->name = $name !== '' ? $name : ('Category ' . $externalId);
         $category->level = $level;
         $category->parent_id = $parentId;
-        if ($category->slug === null || $category->slug === '') {
-            $category->slug = Inflector::slug($category->name);
-        }
         $category->save();
 
         return $category;
