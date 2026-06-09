@@ -22,6 +22,16 @@ $items = [
         'url' => ['/site/contact'],
     ],
     [
+        'label' => 'Hub',
+        'visible' => !Yii::$app->user->isGuest,
+        'items' => [
+            ['label' => 'Stores', 'url' => ['/admin/store/index']],
+            ['label' => 'Products', 'url' => ['/admin/product/index']],
+            ['label' => 'Import products', 'url' => ['/admin/product/import']],
+            ['label' => 'Sync queue', 'url' => ['/admin/sync-job/index']],
+        ],
+    ],
+    [
         'label' => 'Login',
         'url' => ['/site/login'],
         'visible' => Yii::$app->user->isGuest,
