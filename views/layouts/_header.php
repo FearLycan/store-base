@@ -29,6 +29,7 @@ $items = [
             ['label' => 'Products', 'url' => ['/admin/product/index']],
             ['label' => 'Import products', 'url' => ['/admin/product/import']],
             ['label' => 'Sync queue', 'url' => ['/admin/sync-job/index']],
+            ['label' => 'Session', 'url' => ['/admin/setting/index']],
         ],
     ],
     [
