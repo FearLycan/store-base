@@ -29,6 +29,13 @@ $params = [
     // --- Site / niche identity (per deployment) ---
     'site.name'  => 'Store Base',
     'site.niche' => 'general',
+
+    // --- Branding (per deployment; override in params-local) ---
+    'site.baseUrl'      => 'https://example.com', // override in params-local
+    'site.logo'         => '',
+    'site.accentColor'  => '#2563eb',
+    'site.tagline'      => 'Curated finds, updated daily.',
+    'site.footer'       => '',
 ];
 
 // Local overrides (not committed to the repo). See params-local.php.example.

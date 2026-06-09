@@ -19,4 +19,12 @@ return [
     // --- Site / niche identity ---
     // 'site.name'  => 'My Jewelry Shop',
     // 'site.niche' => 'jewelry',
+
+    // --- Branding ---
+    // 'site.name'        => 'My Jewelry Shop',
+    // 'site.baseUrl'     => 'https://myjewelryshop.com',
+    // 'site.logo'        => '/img/logo.svg',
+    // 'site.accentColor' => '#b91c1c',
+    // 'site.tagline'     => 'Handpicked jewelry deals.',
+    // 'site.footer'      => '© My Jewelry Shop',
 ];
