@@ -6,6 +6,7 @@ $db = require __DIR__ . '/db.php';
 $config = [
     'id'         => 'basic',
     'basePath'   => dirname(__DIR__),
+    'defaultRoute' => 'catalog/index',
     'bootstrap'  => ['log'],
     'container'  => [
         'singletons' => [
@@ -34,7 +35,7 @@ $config = [
             'enableAutoLogin' => true,
         ],
         'errorHandler' => [
-            'errorAction' => 'site/error',
+            'errorAction' => 'catalog/error',
         ],
         'mailer'       => \yii\mail\MailerInterface::class,
         'log'          => [
@@ -51,6 +52,12 @@ $config = [
             'enablePrettyUrl' => true,
             'showScriptName'  => false,
             'rules'           => [
+                ''                            => 'catalog/index',
+                'catalog'                     => 'catalog/all',
+                'search'                      => 'catalog/search',
+                'go/<id:\d+>'                 => 'go/index',
+                'category/<slug:[a-z0-9-]+>'  => 'catalog/category',
+                'product/<slug:[a-z0-9-]+>'   => 'product/view',
             ],
         ],
     ],
