@@ -4,23 +4,27 @@ declare(strict_types=1);
 
 namespace app\components\aliexpress;
 
+use RuntimeException;
 use Throwable;
 use yii\helpers\Json;
 use yii\httpclient\Client;
 
 /**
- * Scrapes a product detail page for data the Affiliate API does not provide:
- * full image gallery, SKU/variants and specification attributes.
+ * Fetches product detail the Affiliate API does not provide — full HD image gallery, SKU/variants
+ * and specification attributes — via the CSR data API `mtop.aliexpress.pdp.pc.query`.
  *
- * NOTE (live-verification point — plan Task 15): AliExpress detail pages embed a
- * `window.runParams` JSON blob with imageModule / skuModule / specsModule / descriptionModule.
- * Those key paths shift periodically and differ across A/B layouts. The extractors below are
- * tolerant (return empty on miss) so the importer still succeeds on API core data when parsing
- * fails. Confirm key paths against a live page and adjust if gallery/variants/specs come back empty.
+ * The item page is fully client-side rendered (empty window.runParams), so the data lives only in
+ * this signed mtop endpoint. It is risk-controlled: it returns real data only when a valid `x5sec`
+ * cookie is injected into the session (see AliExpressMtopSession::injectStoredRiskCookies, fed from
+ * the admin-pasted Setting). Without it the call returns RGV587 and we throw — the importer then
+ * falls back to the API core (main image only).
  */
 final class AliExpressProductScraper
 {
+    private const PDP_API = 'mtop.aliexpress.pdp.pc.query';
+
     public function __construct(
+        private readonly AliExpressMtopSession $session = new AliExpressMtopSession(),
         private readonly Client $client = new Client(['transport' => 'yii\httpclient\CurlTransport']),
     ) {
     }
@@ -30,126 +34,72 @@ final class AliExpressProductScraper
      */
     public function fetch(string $productId): array
     {
-        $html = $this->fetchProductPageHtml($productId);
-        $runParams = $html !== '' ? $this->extractRunParams($html) : [];
+        $this->session->bootstrapForProduct($productId);
+        $decoded = $this->session->call(self::PDP_API, [
+            'productId'  => $productId,
+            '_lang'      => 'en_US',
+            '_currency'  => 'USD',
+            'country'    => 'US',
+            'province'   => '',
+            'city'       => '',
+            'channel'    => '',
+            'pdp_ext_f'  => '',
+            'sourceType' => '',
+            'clientType' => 'pc',
+        ]);
+
+        $ret = (string)($decoded['ret'][0] ?? '');
+        if (!str_contains($ret, 'SUCCESS')) {
+            throw new RuntimeException('pdp.pc.query failed (' . $ret . ') — refresh the x5sec cookie in admin (Hub → Session).');
+        }
+
+        $result = $decoded['data']['result'] ?? [];
+        if (!is_array($result)) {
+            $result = [];
+        }
 
         return [
-            'description' => $this->extractDescription($runParams),
-            'images'      => $this->extractImages($runParams),
-            'variants'    => $this->extractVariants($runParams),
-            'attributes'  => $this->extractAttributes($runParams),
+            'description' => $this->extractDescription($result),
+            'images'      => $this->extractImages($result),
+            'variants'    => $this->extractVariants($result),
+            'attributes'  => $this->extractAttributes($result),
         ];
     }
 
-    private function fetchProductPageHtml(string $productId): string
+    /** @return array<int,string> */
+    private function extractImages(array $result): array
     {
-        $response = $this->client
-            ->createRequest()
-            ->setMethod('GET')
-            ->setUrl('https://www.aliexpress.com/item/' . rawurlencode($productId) . '.html')
-            ->setOptions([
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_MAXREDIRS      => 8,
-                CURLOPT_TIMEOUT        => 25,
-                CURLOPT_CONNECTTIMEOUT => 10,
-            ])
-            ->addHeaders([
-                'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language' => 'en-US,en;q=0.9',
-                'User-Agent'      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-                'Referer'         => 'https://www.aliexpress.com/',
-            ])
-            ->send();
-
-        return $response->isOk ? (string)$response->getContent() : '';
-    }
-
-    private function extractRunParams(string $html): array
-    {
-        // window.runParams = {...};  (data may be under .data)
-        if (preg_match('~window\.runParams\s*=\s*(\{.*?\});~s', $html, $matches) !== 1) {
-            return [];
-        }
-        try {
-            $decoded = Json::decode($matches[1], true);
-        } catch (Throwable) {
-            return [];
-        }
-        if (!is_array($decoded)) {
-            return [];
-        }
-
-        return isset($decoded['data']) && is_array($decoded['data']) ? $decoded['data'] : $decoded;
-    }
-
-    private function extractImages(array $runParams): array
-    {
-        $paths = $runParams['imageModule']['imagePathList']
-            ?? $runParams['imageModule']['imageList']
-            ?? [];
-        if (!is_array($paths)) {
-            return [];
-        }
-
+        $module = $result['HEADER_IMAGE_PC'] ?? [];
         $urls = [];
-        foreach ($paths as $entry) {
-            $url = is_array($entry) ? ($entry['imageUrl'] ?? $entry['url'] ?? null) : $entry;
-            if (!is_scalar($url)) {
-                continue;
-            }
-            $normalized = $this->normalizeUrl((string)$url);
-            if ($normalized !== null) {
-                $urls[] = $normalized;
+
+        foreach (($module['mainImages'] ?? []) as $entry) {
+            if (is_array($entry) && isset($entry['imageUrl']) && is_scalar($entry['imageUrl'])) {
+                $urls[] = (string)$entry['imageUrl'];
             }
         }
-
-        return array_values(array_unique($urls));
-    }
-
-    private function extractVariants(array $runParams): array
-    {
-        $skuList = $runParams['skuModule']['skuPriceList'] ?? [];
-        if (!is_array($skuList)) {
-            return [];
-        }
-
-        $variants = [];
-        foreach ($skuList as $sku) {
-            if (!is_array($sku)) {
-                continue;
+        if ($urls === []) {
+            foreach (($module['imagePathList'] ?? []) as $entry) {
+                if (is_scalar($entry)) {
+                    $urls[] = (string)$entry;
+                }
             }
-            $amount = $sku['skuVal']['skuAmount']['value']
-                ?? $sku['skuVal']['skuActivityAmount']['value']
-                ?? null;
-            $original = $sku['skuVal']['skuCalPrice'] ?? $sku['skuVal']['skuAmount']['value'] ?? null;
-            $variants[] = [
-                'external_sku_id' => isset($sku['skuId']) ? (string)$sku['skuId'] : null,
-                'name'            => isset($sku['skuAttr']) ? (string)$sku['skuAttr'] : null,
-                'options'         => $this->extractVariantOptions($sku),
-                'price'           => is_numeric($amount) ? (int)round((float)$amount * 100) : null,
-                'original_price'  => is_numeric($original) ? (int)round((float)$original * 100) : null,
-                'stock'           => isset($sku['skuVal']['availQuantity']) && is_numeric($sku['skuVal']['availQuantity'])
-                    ? (int)$sku['skuVal']['availQuantity'] : null,
-                'image'           => null,
-            ];
         }
 
-        return $variants;
-    }
-
-    private function extractVariantOptions(array $sku): ?array
-    {
-        // "skuAttr" looks like "14:200001460#Red;5:100014064#XL" — keep the raw mapping for the front-end.
-        if (isset($sku['skuPropIds'])) {
-            return ['skuPropIds' => (string)$sku['skuPropIds'], 'skuAttr' => isset($sku['skuAttr']) ? (string)$sku['skuAttr'] : null];
+        $normalized = [];
+        foreach ($urls as $url) {
+            $value = $this->normalizeUrl($url);
+            if ($value !== null) {
+                $normalized[] = $value;
+            }
         }
 
-        return null;
+        return array_values(array_unique($normalized));
     }
 
-    private function extractAttributes(array $runParams): array
+    /** @return array<int,array{name:string,value:?string}> */
+    private function extractAttributes(array $result): array
     {
-        $props = $runParams['specsModule']['props'] ?? [];
+        $props = $result['PRODUCT_PROP_PC']['showedProps'] ?? $result['PRODUCT_PROP_PC']['outerProps'] ?? [];
         if (!is_array($props)) {
             return [];
         }
@@ -159,38 +109,114 @@ final class AliExpressProductScraper
             if (!is_array($prop)) {
                 continue;
             }
-            $name = trim((string)($prop['attrName'] ?? $prop['name'] ?? ''));
+            $name = trim((string)($prop['attrName'] ?? ''));
             if ($name === '') {
                 continue;
             }
-            $value = $prop['attrValue'] ?? $prop['value'] ?? null;
+            $value = $prop['attrValue'] ?? null;
             $attributes[] = ['name' => $name, 'value' => is_scalar($value) ? (string)$value : null];
         }
 
         return $attributes;
     }
 
-    private function extractDescription(array $runParams): ?string
+    /** @return array<int,array> */
+    private function extractVariants(array $result): array
     {
-        // descriptionModule.descriptionUrl points to a secondary HTML fragment; fetch it best-effort.
-        $descriptionUrl = $runParams['descriptionModule']['descriptionUrl'] ?? null;
-        if (!is_string($descriptionUrl) || $descriptionUrl === '') {
+        $skuPaths = $result['SKU']['skuPaths'] ?? [];
+        if (!is_array($skuPaths) || $skuPaths === []) {
+            return [];
+        }
+        $priceMap = $result['PRICE']['skuIdStrPriceInfoMap'] ?? [];
+        $priceMap = is_array($priceMap) ? $priceMap : [];
+        $skuImagesMap = $result['HEADER_IMAGE_PC']['skuImagesMap'] ?? [];
+        $skuImagesMap = is_array($skuImagesMap) ? $skuImagesMap : [];
+
+        $variants = [];
+        foreach ($skuPaths as $sku) {
+            if (!is_array($sku)) {
+                continue;
+            }
+            $skuId = isset($sku['skuId']) ? (string)$sku['skuId'] : (isset($sku['skuIdStr']) ? (string)$sku['skuIdStr'] : '');
+            if ($skuId === '') {
+                continue;
+            }
+            $skuAttr = isset($sku['skuAttr']) ? (string)$sku['skuAttr'] : null;
+            $priceInfo = is_array($priceMap[$skuId] ?? null) ? $priceMap[$skuId] : [];
+
+            $variants[] = [
+                'external_sku_id' => $skuId,
+                'name'            => $this->skuLabel($skuAttr),
+                'options'         => ['skuAttr' => $skuAttr, 'path' => isset($sku['path']) ? (string)$sku['path'] : null],
+                'price'           => $this->moneyToCents((string)($priceInfo['salePriceString'] ?? '')),
+                'original_price'  => $this->moneyToCents((string)($priceInfo['originalPrice']['value'] ?? '')),
+                'stock'           => isset($sku['skuStock']) && is_numeric($sku['skuStock']) ? (int)$sku['skuStock'] : null,
+                'image'           => $this->skuImage($skuImagesMap[$skuId] ?? null),
+            ];
+        }
+
+        return $variants;
+    }
+
+    private function extractDescription(array $result): ?string
+    {
+        $url = $result['DESC']['pcDescUrl'] ?? $result['DESC']['nativeDescUrl'] ?? null;
+        if (!is_string($url) || $url === '') {
             return null;
         }
         try {
             $response = $this->client->createRequest()
                 ->setMethod('GET')
-                ->setUrl($descriptionUrl)
-                ->setOptions([CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8])
+                ->setUrl($url)
+                ->setOptions([CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_ENCODING => ''])
                 ->addHeaders(['User-Agent' => 'Mozilla/5.0', 'Referer' => 'https://www.aliexpress.com/'])
                 ->send();
         } catch (Throwable) {
             return null;
         }
-
         $body = trim((string)$response->getContent());
 
         return ($response->isOk && $body !== '') ? $body : null;
+    }
+
+    /** "14:173#A3" -> "A3" (the human-facing option label). */
+    private function skuLabel(?string $skuAttr): ?string
+    {
+        if ($skuAttr === null || $skuAttr === '') {
+            return null;
+        }
+        $hash = strpos($skuAttr, '#');
+
+        return $hash !== false ? substr($skuAttr, $hash + 1) : $skuAttr;
+    }
+
+    private function skuImage(mixed $entry): ?string
+    {
+        if (is_string($entry)) {
+            return $this->normalizeUrl($entry);
+        }
+        if (is_array($entry)) {
+            foreach (['imageUrl', 'url', 'image'] as $key) {
+                if (isset($entry[$key]) && is_scalar($entry[$key])) {
+                    return $this->normalizeUrl((string)$entry[$key]);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** "$0.99" / "3.48" -> integer minor units (cents). Returns null when unparseable. */
+    private function moneyToCents(string $raw): ?int
+    {
+        if ($raw === '') {
+            return null;
+        }
+        if (preg_match('~(\d+(?:[.,]\d+)?)~', $raw, $m) !== 1) {
+            return null;
+        }
+
+        return (int)round((float)str_replace(',', '.', $m[1]) * 100);
     }
 
     private function normalizeUrl(string $value): ?string

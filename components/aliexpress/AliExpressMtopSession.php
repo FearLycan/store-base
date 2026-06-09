@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\components\aliexpress;
 
+use app\models\Setting;
 use RuntimeException;
 use Yii;
 use yii\helpers\Json;
@@ -63,6 +64,7 @@ final class AliExpressMtopSession
         [$html, $cookieHeader] = $this->fetchPageCookies($url);
         $this->cookieHeader = $cookieHeader;
         $this->acquireToken($productId);
+        $this->injectStoredRiskCookies();
     }
 
     /** Bootstrap cookies using a store page (for store listing calls). */
@@ -72,6 +74,31 @@ final class AliExpressMtopSession
         $this->cookieHeader = $cookieHeader;
         // Any productId works for the token handshake; token is shared per session.
         $this->acquireToken('1');
+        $this->injectStoredRiskCookies();
+    }
+
+    /**
+     * Merge the admin-pasted anti-bot cookies (x5sec et al.) from Setting into the session's
+     * cookie header so risk-controlled endpoints (pdp.pc.query) pass. Deliberately excludes
+     * `_m_h5_tk` so our freshly-acquired sign token stays consistent with the cookie we send.
+     * No-op when no cookie is configured (keeps the review path working without one).
+     */
+    private function injectStoredRiskCookies(): void
+    {
+        $stored = (string)(Setting::get(Setting::ALIEXPRESS_COOKIE, '') ?? '');
+        if (trim($stored) === '') {
+            return;
+        }
+        $extra = [];
+        foreach (['x5sec', 'cna', 'aep_usuc_f', 'xman_t', 'xman_us_f', 'acs_usuc_t'] as $name) {
+            $value = $this->extractCookieValue($stored, $name);
+            if ($value !== null) {
+                $extra[] = $name . '=' . $value;
+            }
+        }
+        if ($extra !== []) {
+            $this->cookieHeader = $this->mergeCookieHeaders($this->cookieHeader, implode('; ', $extra));
+        }
     }
 
     /**
