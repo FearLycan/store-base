@@ -42,3 +42,5 @@ tests/_support/_generated
 .claude
 .agents
 skills-lock.json
+/bin/tailwindcss
+/web/css/app.css

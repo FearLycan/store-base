@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --accent: #2563eb; } /* overridden at runtime via params */
+
+@layer components {
+  .btn-accent {
+    @apply inline-flex items-center justify-center rounded-lg px-5 py-3 font-semibold text-white shadow-sm transition;
+    background-color: var(--accent);
+  }
+  .btn-accent:hover { filter: brightness(0.92); }
+}
