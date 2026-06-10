@@ -16,6 +16,13 @@ final class CatalogController extends Controller
 {
     public $layout = 'shop';
 
+    public function actions(): array
+    {
+        return [
+            'error' => ['class' => \yii\web\ErrorAction::class],
+        ];
+    }
+
     public function actionIndex(): string
     {
         return $this->render('index', [
