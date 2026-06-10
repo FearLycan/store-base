@@ -10,23 +10,12 @@ use app\models\SyncJob;
 use app\modules\admin\models\ImportProductForm;
 use Yii;
 use yii\data\ActiveDataProvider;
-use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 final class ProductController extends Controller
 {
-    public function behaviors(): array
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'rules' => [['allow' => true, 'roles' => ['@']]],
-            ],
-        ];
-    }
-
     public function actionIndex(?int $store_id = null): string
     {
         $query = Product::find()->with('store')->orderBy(['id' => SORT_DESC]);

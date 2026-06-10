@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace app\models;
+namespace app\modules\auth\models;
 
+use app\models\User;
 use Yii;
 use yii\base\Model;
 
@@ -12,11 +13,12 @@ use yii\base\Model;
  *
  * @property-read User|null $user
  */
-class LoginForm extends Model
+final class LoginForm extends Model
 {
     public string $username = '';
     public string $password = '';
     public bool $rememberMe = true;
+
     private User|null $_user = null;
     private bool $_userLoaded = false;
 
@@ -55,6 +57,7 @@ class LoginForm extends Model
 
     /**
      * Logs in a user using the provided username and password.
+     *
      * @return bool whether the user is logged in successfully
      */
     public function login(): bool
@@ -67,9 +70,7 @@ class LoginForm extends Model
     }
 
     /**
-     * Finds user by [[username]]
-     *
-     * @return User|null
+     * Finds user by [[username]].
      */
     public function getUser(): User|null
     {

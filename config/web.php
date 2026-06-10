@@ -36,6 +36,7 @@ $config = [
         'user'         => [
             'identityClass'   => \app\models\User::class,
             'enableAutoLogin' => true,
+            'loginUrl'        => ['/auth/default/login'],
         ],
         'errorHandler' => [
             'errorAction' => 'catalog/error',
@@ -62,12 +63,19 @@ $config = [
                 'go/<id:\d+>'                => 'go/index',
                 'category/<slug:[a-z0-9-]+>' => 'catalog/category',
                 'product/<slug:[a-z0-9-]+>'  => 'product/view',
+                'login'                      => 'auth/default/login',
+                'logout'                     => 'auth/default/logout',
+                'signup'                     => 'auth/default/signup',
+                'verify-email'               => 'auth/default/verify-email',
             ],
         ],
     ],
     'modules'      => [
         'admin' => [
             'class' => \app\modules\admin\AdminModule::class,
+        ],
+        'auth'  => [
+            'class' => \app\modules\auth\AuthModule::class,
         ],
     ],
     'params'       => $params,

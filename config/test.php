@@ -12,11 +12,20 @@ return [
     'bootstrap' => [
         \app\tests\Support\MailerBootstrap::class,
     ],
+    'container' => [
+        'singletons' => [
+            \yii\mail\MailerInterface::class => static fn () => Yii::$app->mailer,
+        ],
+    ],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
     ],
     'language' => 'en-US',
+    'modules' => [
+        'admin' => ['class' => \app\modules\admin\AdminModule::class],
+        'auth'  => ['class' => \app\modules\auth\AuthModule::class],
+    ],
     'components' => [
         'db' => $db,
         'mailer' => [

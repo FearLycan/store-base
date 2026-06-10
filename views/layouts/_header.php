@@ -8,6 +8,8 @@ use yii\bootstrap5\Nav;
 use yii\bootstrap5\NavBar;
 use yii\helpers\Html;
 
+$isAdmin = Yii::$app->user->identity?->isAdmin() ?? false;
+
 $items = [
     [
         'label' => 'Home',
@@ -22,9 +24,10 @@ $items = [
         'url' => ['/site/contact'],
     ],
     [
-        'label' => 'Hub',
-        'visible' => !Yii::$app->user->isGuest,
+        'label' => 'Admin',
+        'visible' => $isAdmin,
         'items' => [
+            ['label' => 'Dashboard', 'url' => ['/admin/dashboard/index']],
             ['label' => 'Stores', 'url' => ['/admin/store/index']],
             ['label' => 'Products', 'url' => ['/admin/product/index']],
             ['label' => 'Import products', 'url' => ['/admin/product/import']],
@@ -34,13 +37,18 @@ $items = [
         ],
     ],
     [
+        'label' => 'Sign up',
+        'url' => ['/auth/default/signup'],
+        'visible' => Yii::$app->user->isGuest,
+    ],
+    [
         'label' => 'Login',
-        'url' => ['/site/login'],
+        'url' => ['/auth/default/login'],
         'visible' => Yii::$app->user->isGuest,
     ],
     [
         'label' => 'Logout (' . Html::encode(Yii::$app->user->identity?->username ?? '') . ')',
-        'url' => ['/site/logout'],
+        'url' => ['/auth/default/logout'],
         'linkOptions' => [
             'data-method' => 'post',
             'class' => 'nav-link logout',

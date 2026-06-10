@@ -8,23 +8,12 @@ use app\enums\SyncJobStatusEnum;
 use app\models\SyncJob;
 use Yii;
 use yii\data\ActiveDataProvider;
-use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 final class SyncJobController extends Controller
 {
-    public function behaviors(): array
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'rules' => [['allow' => true, 'roles' => ['@']]],
-            ],
-        ];
-    }
-
     public function actionIndex(?string $status = null, ?string $type = null): string
     {
         $query = SyncJob::find()->orderBy(['id' => SORT_DESC]);

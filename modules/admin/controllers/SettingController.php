@@ -9,7 +9,6 @@ use app\models\Setting;
 use app\models\Store;
 use Throwable;
 use Yii;
-use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\Response;
 
@@ -19,16 +18,6 @@ use yii\web\Response;
  */
 final class SettingController extends Controller
 {
-    public function behaviors(): array
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'rules' => [['allow' => true, 'roles' => ['@']]],
-            ],
-        ];
-    }
-
     public function actionIndex(): Response|string
     {
         if (Yii::$app->request->isPost) {

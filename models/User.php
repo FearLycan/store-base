@@ -32,6 +32,9 @@ class User extends ActiveRecord implements IdentityInterface
     public const int ROLE_ADMIN = 10;
     public const int ROLE_USER  = 1;
 
+    /** Lifetime of an e-mail verification token, in seconds (24h). */
+    public const int VERIFICATION_TOKEN_EXPIRE = 86400;
+
     public static function tableName(): string
     {
         return '{{%user}}';
@@ -101,6 +104,30 @@ class User extends ActiveRecord implements IdentityInterface
         return static::findOne(['username' => $username, 'status' => self::STATUS_ACTIVE]);
     }
 
+    /**
+     * Finds a not-yet-activated user by their (non-expired) verification token.
+     */
+    public static function findByVerificationToken(string $token): ?self
+    {
+        if ($token === '' || !self::isVerificationTokenValid($token)) {
+            return null;
+        }
+
+        return static::findOne(['verification_token' => $token, 'status' => self::STATUS_INACTIVE]);
+    }
+
+    /**
+     * Whether the timestamp embedded in a verification token is still within its
+     * validity window.
+     */
+    public static function isVerificationTokenValid(string $token): bool
+    {
+        $parts = explode('_', $token);
+        $timestamp = (int)end($parts);
+
+        return $timestamp !== 0 && $timestamp + self::VERIFICATION_TOKEN_EXPIRE >= time();
+    }
+
     public function validatePassword(string $password): bool
     {
         return Yii::$app->security->validatePassword($password, $this->password_hash);
@@ -114,5 +141,21 @@ class User extends ActiveRecord implements IdentityInterface
     public function generateAuthKey(): void
     {
         $this->auth_key = Yii::$app->security->generateRandomString();
+    }
+
+    public function generateVerificationToken(): void
+    {
+        $this->verification_token = Yii::$app->security->generateRandomString() . '_' . time();
+    }
+
+    /**
+     * Activates a freshly verified account and clears its one-time token.
+     */
+    public function activate(): bool
+    {
+        $this->status = self::STATUS_ACTIVE;
+        $this->verification_token = null;
+
+        return $this->save(false);
     }
 }

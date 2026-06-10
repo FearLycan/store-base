@@ -11,23 +11,12 @@ use app\models\SyncJob;
 use app\modules\admin\models\AddStoreForm;
 use Yii;
 use yii\data\ActiveDataProvider;
-use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 final class StoreController extends Controller
 {
-    public function behaviors(): array
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'rules' => [['allow' => true, 'roles' => ['@']]],
-            ],
-        ];
-    }
-
     public function actionIndex(): string
     {
         return $this->render('index', [
