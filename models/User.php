@@ -4,94 +4,115 @@ declare(strict_types=1);
 
 namespace app\models;
 
-use yii\base\BaseObject;
+use Yii;
+use yii\base\NotSupportedException;
+use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
 use yii\web\IdentityInterface;
 
-class User extends BaseObject implements IdentityInterface
+/**
+ * @property int $id
+ * @property string $username
+ * @property string $email
+ * @property string $password_hash
+ * @property string $auth_key
+ * @property string|null $password_reset_token
+ * @property string|null $verification_token
+ * @property int $role
+ * @property int $status
+ * @property string $created_at
+ * @property string $updated_at
+ */
+class User extends ActiveRecord implements IdentityInterface
 {
-    public int|string $id = '';
-    public string $username = '';
-    public string $passwordHash = '';
-    public string $authKey = '';
-    public string $accessToken = '';
-    private static array $_users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            // password: admin
-            'passwordHash' => '$2y$13$gYAywKSkhfZDq9FLNdm7buKnvlRxDexf5xipSMAxQPDUxpaptmZJu',
-            'authKey' => 'test100key',
-            'accessToken' => '100-token',
-        ],
-        '101' => [
-            'id' => '101',
-            'username' => 'demo',
-            // password: demo
-            'passwordHash' => '$2y$13$alRLq1PGVMlGYwS/Y3iy3ewQns1Z8ol8Iq6Zb5k7ZwEhblA1aL29y',
-            'authKey' => 'test101key',
-            'accessToken' => '101-token',
-        ],
-    ];
-    /**
-     * {@inheritdoc}
-     */
-    public static function findIdentity($id): static|null
+    public const int STATUS_DELETED  = 0;
+    public const int STATUS_INACTIVE = 9;
+    public const int STATUS_ACTIVE   = 10;
+
+    public const int ROLE_ADMIN = 10;
+    public const int ROLE_USER  = 1;
+
+    public static function tableName(): string
     {
-        return isset(self::$_users[$id]) ? new static(self::$_users[$id]) : null;
+        return '{{%user}}';
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public static function findIdentityByAccessToken($token, $type = null): static|null
+    public function behaviors(): array
     {
-        foreach (self::$_users as $user) {
-            if ($user['accessToken'] === $token) {
-                return new static($user);
-            }
-        }
-
-        return null;
+        return [
+            // created_at/updated_at are MySQL DATETIME columns, so we store formatted
+            // datetimes (not the behavior's default UNIX int, which strict mode rejects).
+            'timestamp' => [
+                'class' => TimestampBehavior::class,
+                'value' => static fn (): string => date('Y-m-d H:i:s'),
+            ],
+        ];
     }
 
-    /**
-     * Finds user by username
-     *
-     * @param string $username
-     * @return static|null
-     */
-    public static function findByUsername(string $username): static|null
+    public function rules(): array
     {
-        foreach (self::$_users as $user) {
-            if (strcasecmp($user['username'], $username) === 0) {
-                return new static($user);
-            }
-        }
-
-        return null;
+        return [
+            [['username', 'email'], 'required'],
+            [['username', 'email'], 'unique'],
+            ['email', 'email'],
+            ['status', 'default', 'value' => self::STATUS_ACTIVE],
+            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_DELETED]],
+            ['role', 'default', 'value' => self::ROLE_USER],
+            ['role', 'in', 'range' => [self::ROLE_ADMIN, self::ROLE_USER]],
+        ];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getId(): int|string
+    public function isAdmin(): bool
     {
-        return $this->id;
+        return (int)$this->role === self::ROLE_ADMIN;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getAuthKey(): string|null
+    // --- IdentityInterface ---
+
+    public static function findIdentity($id): ?self
     {
-        return $this->authKey;
+        return static::findOne(['id' => $id, 'status' => self::STATUS_ACTIVE]);
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public static function findIdentityByAccessToken($token, $type = null): never
+    {
+        throw new NotSupportedException('"findIdentityByAccessToken" is not implemented.');
+    }
+
+    public function getId(): int|string|null
+    {
+        return $this->getPrimaryKey();
+    }
+
+    public function getAuthKey(): ?string
+    {
+        return $this->auth_key;
+    }
+
     public function validateAuthKey($authKey): bool
     {
-        return $this->authKey === $authKey;
+        return $this->getAuthKey() === $authKey;
+    }
+
+    // --- auth helpers ---
+
+    public static function findByUsername(string $username): ?self
+    {
+        return static::findOne(['username' => $username, 'status' => self::STATUS_ACTIVE]);
+    }
+
+    public function validatePassword(string $password): bool
+    {
+        return Yii::$app->security->validatePassword($password, $this->password_hash);
+    }
+
+    public function setPassword(string $password): void
+    {
+        $this->password_hash = Yii::$app->security->generatePasswordHash($password);
+    }
+
+    public function generateAuthKey(): void
+    {
+        $this->auth_key = Yii::$app->security->generateRandomString();
     }
 }

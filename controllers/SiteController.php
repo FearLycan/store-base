@@ -92,7 +92,7 @@ class SiteController extends Controller
             return $this->goHome();
         }
 
-        $model = new LoginForm($this->security);
+        $model = new LoginForm();
 
         if ($model->load($this->request->post()) && $model->login()) {
             return $this->goBack();
