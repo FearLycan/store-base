@@ -45,6 +45,21 @@ final class SettingController extends Controller
         ]);
     }
 
+    public function actionAppearance(): Response|string
+    {
+        if (Yii::$app->request->isPost) {
+            Setting::set('site.custom_css', (string)Yii::$app->request->post('custom_css', ''));
+            Yii::$app->session->setFlash('success', 'Custom CSS saved.');
+
+            return $this->redirect(['appearance']);
+        }
+
+        return $this->render('appearance', [
+            'customCss' => (string)Setting::get('site.custom_css', ''),
+            'updatedAt' => Setting::updatedAt('site.custom_css'),
+        ]);
+    }
+
     public function actionTest(): Response
     {
         $store = Store::find()->orderBy(['id' => SORT_ASC])->one();
