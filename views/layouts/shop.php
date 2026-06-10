@@ -27,6 +27,7 @@ $customCss = (string)(Setting::get('site.custom_css', '') ?? '');
     <?= $this->render('shop-header') ?>
     <main class="mx-auto w-full max-w-7xl px-4 py-6"><?= $content ?></main>
     <?= $this->render('shop-footer') ?>
+    <?= $this->render('_search-modal') ?>
 <?php $this->endBody() ?>
 </body>
 </html>

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace app\controllers;
 
 use app\models\Category;
+use app\models\Product;
 use app\services\CatalogQuery;
 use Yii;
 use yii\data\ActiveDataProvider;
 use yii\data\Pagination;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 
 final class CatalogController extends Controller
 {
@@ -70,5 +73,75 @@ final class CatalogController extends Controller
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current' => $filters,
         ]);
+    }
+
+    /** Live-search suggestions for the search modal. Empty query returns "popular now". */
+    public function actionSuggest(): array
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $q = trim((string)Yii::$app->request->get('q', ''));
+
+        if ($q === '') {
+            return [
+                'q' => $q,
+                'mode' => 'popular',
+                'total' => 0,
+                'categories' => array_map(self::categoryPayload(...), Category::find()
+                    ->where(['level' => 1])->orderBy(['name' => SORT_ASC])->limit(6)->all()),
+                'products' => array_map(self::productPayload(...), CatalogQuery::rail('popular', 6)),
+            ];
+        }
+
+        $query = CatalogQuery::search($q);
+        $total = (int)(clone $query)->count();
+        $products = CatalogQuery::applySort($query, 'popular')->limit(8)->all();
+        $categories = Category::find()->where(['like', 'name', $q])
+            ->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC])->limit(4)->all();
+
+        return [
+            'q' => $q,
+            'mode' => 'results',
+            'total' => $total,
+            'categories' => array_map(self::categoryPayload(...), $categories),
+            'products' => array_map(self::productPayload(...), $products),
+        ];
+    }
+
+    private static function categoryPayload(Category $category): array
+    {
+        return [
+            'name' => $category->name,
+            'url' => Url::to(['/catalog/category', 'slug' => $category->slug]),
+        ];
+    }
+
+    private static function productPayload(Product $product): array
+    {
+        $hasSale = $product->price !== null && $product->original_price !== null && $product->original_price > $product->price;
+
+        return [
+            'title' => (string)$product->title,
+            'url' => Url::to(['/product/view', 'slug' => $product->slug]),
+            'image' => $product->main_image ?: '/img/placeholder.png',
+            'price' => $product->price !== null ? number_format($product->price / 100, 2) : null,
+            'originalPrice' => $hasSale ? number_format($product->original_price / 100, 2) : null,
+            'discount' => $hasSale ? (int)round((1 - $product->price / $product->original_price) * 100) : null,
+            'currency' => $product->currency_code ?: 'USD',
+            'rating' => $product->rating_value !== null ? round((float)$product->rating_value, 1) : null,
+            'reviews' => $product->review_count,
+            'orders' => $product->orders_count > 0 ? self::shortCount($product->orders_count) : null,
+        ];
+    }
+
+    /** 1432 -> "1.4k", 2100000 -> "2.1m" */
+    private static function shortCount(int $n): string
+    {
+        if ($n >= 1_000_000) {
+            return rtrim(rtrim(number_format($n / 1_000_000, 1), '0'), '.') . 'm';
+        }
+        if ($n >= 1_000) {
+            return rtrim(rtrim(number_format($n / 1_000, 1), '0'), '.') . 'k';
+        }
+        return (string)$n;
     }
 }

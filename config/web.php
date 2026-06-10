@@ -4,11 +4,11 @@ $params = require __DIR__ . '/params.php';
 $db = require __DIR__ . '/db.php';
 
 $config = [
-    'id'         => 'basic',
-    'basePath'   => dirname(__DIR__),
+    'id'           => 'basic',
+    'basePath'     => dirname(__DIR__),
     'defaultRoute' => 'catalog/index',
-    'bootstrap'  => ['log'],
-    'container'  => [
+    'bootstrap'    => ['log'],
+    'container'    => [
         'singletons' => [
             \yii\mail\MailerInterface::class => [
                 'class'            => \yii\symfonymailer\Mailer::class,
@@ -18,14 +18,17 @@ $config = [
             ],
         ],
     ],
-    'aliases'    => [
+    'aliases'      => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
     ],
-    'components' => [
+    'components'   => [
         'request'      => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 'pgFNd2npjk3TyQc7BgZODsK6M6WtqDL7',
+        ],
+        'assetManager' => [
+            'appendTimestamp' => true,
         ],
         'cache'        => [
             'class' => \yii\caching\FileCache::class,
@@ -52,21 +55,22 @@ $config = [
             'enablePrettyUrl' => true,
             'showScriptName'  => false,
             'rules'           => [
-                ''                            => 'catalog/index',
-                'catalog'                     => 'catalog/all',
-                'search'                      => 'catalog/search',
-                'go/<id:\d+>'                 => 'go/index',
-                'category/<slug:[a-z0-9-]+>'  => 'catalog/category',
-                'product/<slug:[a-z0-9-]+>'   => 'product/view',
+                ''                           => 'catalog/index',
+                'catalog'                    => 'catalog/all',
+                'search'                     => 'catalog/search',
+                'search/suggest'             => 'catalog/suggest',
+                'go/<id:\d+>'                => 'go/index',
+                'category/<slug:[a-z0-9-]+>' => 'catalog/category',
+                'product/<slug:[a-z0-9-]+>'  => 'product/view',
             ],
         ],
     ],
-    'modules'    => [
+    'modules'      => [
         'admin' => [
             'class' => \app\modules\admin\AdminModule::class,
         ],
     ],
-    'params'     => $params,
+    'params'       => $params,
 ];
 
 if (YII_ENV_DEV) {
