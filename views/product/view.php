@@ -6,7 +6,6 @@ use app\components\Seo;
 use app\components\schema\builder\ProductPageSchemaBuilder;
 use app\components\schema\JsonLdRenderer;
 use yii\helpers\Html;
-use yii\helpers\HtmlPurifier;
 use yii\helpers\Json;
 use yii\helpers\Url;
 
@@ -18,6 +17,14 @@ $images = [];
 foreach ($product->images as $img) { $images[] = $img->url; }
 if ($images === [] && $product->main_image) { $images[] = $product->main_image; }
 if ($images === []) { $images[] = '/img/placeholder.png'; }
+
+// The raw "detail" HTML is a vendor blob: a tall stack of marketing graphics
+// plus the odd spec line and cross-sell link spam. Restructure it into clean
+// highlights + a de-duped image lookbook so we can present it on our terms.
+$desc = \app\components\ProductDescription::parse($product->description, $images);
+$descImages = $desc['images'];
+$descHighlights = $desc['highlights'];
+$descCollapsed = count($descImages) <= 9 ? count($descImages) : 6;
 
 $goUrl = Url::to(['/go/index', 'id' => $product->id]);
 $crumbLinks = [];
@@ -272,10 +279,77 @@ $cfg = [
 </section>
 <?php endif; ?>
 
-<?php if ($product->description !== null && trim((string)$product->description) !== ''): ?>
-<section class="mt-10">
-    <h2 class="mb-3 text-xl font-bold">Description</h2>
-    <div class="prose max-w-none rounded-xl border border-gray-200 bg-white p-4"><?= HtmlPurifier::process((string)$product->description) ?></div>
+<?php if ($descHighlights || $descImages): ?>
+<section class="mt-10" x-data="productDesc(<?= Html::encode(Json::encode(['images' => $descImages, 'collapsed' => $descCollapsed])) ?>)">
+    <h2 class="mb-4 text-xl font-bold">Product details</h2>
+
+    <?php if ($descHighlights): ?>
+    <div class="desc-highlights">
+        <div class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-[color:var(--accent)]"><path d="M12 2 9.2 8.6 2 9.2l5.5 4.7L5.8 21 12 17.3 18.2 21l-1.7-7.1L22 9.2l-7.2-.6z"/></svg>
+            Highlights
+        </div>
+        <ul class="space-y-2">
+            <?php foreach ($descHighlights as $h): ?>
+            <li class="flex gap-2.5 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;">
+                <span class="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-[color:var(--accent)]"></span>
+                <span><?= Html::encode($h) ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($descImages): ?>
+    <div class="<?= $descHighlights ? 'mt-5' : '' ?> desc-grid">
+        <?php foreach ($descImages as $i => $im): ?>
+        <?php $wide = $im['w'] && $im['h'] && ($im['w'] / $im['h']) >= 1.5; ?>
+        <figure @click="open(<?= $i ?>)"
+                <?php if ($i >= $descCollapsed): ?>x-show="expanded" x-cloak
+                x-transition:enter="transition duration-300 ease-out"
+                x-transition:enter-start="opacity-0 translate-y-2"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                :style="`transition-delay:${Math.min(<?= $i - $descCollapsed ?>, 6) * 55}ms`"<?php endif; ?>
+                class="desc-shot<?= $wide ? ' is-wide' : '' ?>"
+                <?php if ($im['w'] && $im['h']): ?>style="aspect-ratio:<?= (int)$im['w'] ?>/<?= (int)$im['h'] ?>"<?php endif; ?>>
+            <!-- Wide banners that lack server-side dimensions break out to full width once their natural ratio is known. -->
+            <img src="<?= Html::encode($im['url']) ?>" alt="" loading="lazy" class="block h-full w-full object-cover"
+                 @load="$el.naturalWidth / $el.naturalHeight >= 1.5 && $el.parentElement.classList.add('is-wide')">
+            <span class="desc-zoom" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+            </span>
+        </figure>
+        <?php endforeach; ?>
+    </div>
+
+    <?php if ($descCollapsed < count($descImages)): ?>
+    <button type="button" @click="expanded = true" x-show="!expanded" class="desc-more">
+        <span>Show more</span>
+        <span class="tabular-nums text-gray-400">(<span x-text="hidden"><?= count($descImages) - $descCollapsed ?></span>)</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- Lightbox -->
+    <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
+         @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
+         x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
+         x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
+        <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <button type="button" @click.stop="prev()" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <img :src="images[lbIndex]?.url" alt="" class="max-h-[88vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
+        <button type="button" @click.stop="next()" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
+    </div>
 </section>
 <?php endif; ?>
 
@@ -387,6 +461,20 @@ document.addEventListener('alpine:init', () => {
         },
         get stock() { const m = this.matched(); return m ? m.stock : null; },
         get lowStock() { const s = this.stock; return s != null && s > 0 && s <= 20; },
+    }));
+
+    Alpine.data('productDesc', (cfg) => ({
+        images: cfg.images,
+        collapsed: cfg.collapsed,
+        expanded: false,
+        lightbox: false,
+        lbIndex: 0,
+
+        get hidden() { return Math.max(0, this.images.length - this.collapsed); },
+        open(i) { this.lbIndex = i; this.lightbox = true; },
+        close() { this.lightbox = false; },
+        next() { this.lbIndex = (this.lbIndex + 1) % this.images.length; },
+        prev() { this.lbIndex = (this.lbIndex - 1 + this.images.length) % this.images.length; },
     }));
 });
 JS, \yii\web\View::POS_END);

@@ -28,6 +28,11 @@ $rail = function (string $title, array $products) {
     <?php if ($tagline !== ''): ?><p class="mt-2 text-gray-500"><?= Html::encode($tagline) ?></p><?php endif; ?>
 </section>
 
+<section class="mb-10">
+    <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Refine the catalog</p>
+    <?= $this->render('_partials/filters', ['current' => [], 'categories' => $categories, 'showCategory' => true, 'action' => Url::to(['/catalog/all'])]) ?>
+</section>
+
 <?php if ($categories !== []): ?>
 <section class="mb-10">
     <h2 class="mb-4 text-xl font-bold">Categories</h2>

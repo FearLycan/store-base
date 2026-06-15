@@ -29,9 +29,9 @@ final class CatalogController extends Controller
     public function actionIndex(): string
     {
         return $this->render('index', [
-            'popular' => CatalogQuery::rail('popular', 12),
-            'newest'  => CatalogQuery::rail('newest', 12),
-            'categories' => Category::find()->where(['level' => 1])->orderBy(['name' => SORT_ASC])->all(),
+            'popular'    => CatalogQuery::rail('popular', 12),
+            'newest'     => CatalogQuery::rail('newest', 12),
+            'categories' => self::topCategories(),
         ]);
     }
 
@@ -43,7 +43,8 @@ final class CatalogController extends Controller
 
         return $this->render('all', [
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
-            'current' => $filters,
+            'current'      => $filters,
+            'categories'   => self::topCategories(),
         ]);
     }
 
@@ -55,55 +56,62 @@ final class CatalogController extends Controller
         CatalogQuery::applySort($query, $filters['sort'] ?? 'popular');
 
         return $this->render('category', [
-            'category' => $category,
+            'category'     => $category,
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
-            'current' => $filters,
+            'current'      => $filters,
         ]);
     }
 
     public function actionSearch(): string
     {
-        $q = (string)Yii::$app->request->get('q', '');
+        $q = (string) Yii::$app->request->get('q', '');
         $filters = Yii::$app->request->queryParams;
         $query = CatalogQuery::applyFilters(CatalogQuery::search($q), $filters);
         CatalogQuery::applySort($query, $filters['sort'] ?? 'popular');
 
         return $this->render('search', [
-            'q' => $q,
+            'q'            => $q,
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
-            'current' => $filters,
+            'current'      => $filters,
+            'categories'   => self::topCategories(),
         ]);
+    }
+
+    /** @return Category[] Top-level categories for the filter bar's category select. */
+    private static function topCategories(): array
+    {
+        return Category::find()->where(['level' => 1])->orderBy(['name' => SORT_ASC])->all();
     }
 
     /** Live-search suggestions for the search modal. Empty query returns "popular now". */
     public function actionSuggest(): array
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        $q = trim((string)Yii::$app->request->get('q', ''));
+        $q = trim((string) Yii::$app->request->get('q', ''));
 
         if ($q === '') {
             return [
-                'q' => $q,
-                'mode' => 'popular',
-                'total' => 0,
+                'q'          => $q,
+                'mode'       => 'popular',
+                'total'      => 0,
                 'categories' => array_map(self::categoryPayload(...), Category::find()
                     ->where(['level' => 1])->orderBy(['name' => SORT_ASC])->limit(6)->all()),
-                'products' => array_map(self::productPayload(...), CatalogQuery::rail('popular', 6)),
+                'products'   => array_map(self::productPayload(...), CatalogQuery::rail('popular', 6)),
             ];
         }
 
         $query = CatalogQuery::search($q);
-        $total = (int)(clone $query)->count();
+        $total = (int) (clone $query)->count();
         $products = CatalogQuery::applySort($query, 'popular')->limit(8)->all();
         $categories = Category::find()->where(['like', 'name', $q])
             ->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC])->limit(4)->all();
 
         return [
-            'q' => $q,
-            'mode' => 'results',
-            'total' => $total,
+            'q'          => $q,
+            'mode'       => 'results',
+            'total'      => $total,
             'categories' => array_map(self::categoryPayload(...), $categories),
-            'products' => array_map(self::productPayload(...), $products),
+            'products'   => array_map(self::productPayload(...), $products),
         ];
     }
 
@@ -123,13 +131,13 @@ final class CatalogController extends Controller
 
         $urls = [];
         if ($product->main_image) {
-            $urls[] = (string)$product->main_image;
+            $urls[] = (string) $product->main_image;
         }
         foreach ($product->images as $img) {
-            $urls[] = (string)$img->url;
+            $urls[] = (string) $img->url;
         }
 
-        $urls = array_values(array_unique(array_filter($urls, static fn ($u): bool => $u !== '')));
+        $urls = array_values(array_unique(array_filter($urls, static fn($u): bool => $u !== '')));
 
         return ['images' => array_slice($urls, 0, 6)];
     }
@@ -138,7 +146,7 @@ final class CatalogController extends Controller
     {
         return [
             'name' => $category->name,
-            'url' => Url::to(['/catalog/category', 'slug' => $category->slug]),
+            'url'  => Url::to(['/catalog/category', 'slug' => $category->slug]),
         ];
     }
 
@@ -147,16 +155,16 @@ final class CatalogController extends Controller
         $hasSale = $product->price !== null && $product->original_price !== null && $product->original_price > $product->price;
 
         return [
-            'title' => $product->displayName,
-            'url' => Url::to(['/product/view', 'slug' => $product->slug]),
-            'image' => $product->main_image ?: '/img/placeholder.png',
-            'price' => $product->price !== null ? number_format($product->price / 100, 2) : null,
+            'title'         => $product->displayName,
+            'url'           => Url::to(['/product/view', 'slug' => $product->slug]),
+            'image'         => $product->main_image ?: '/img/placeholder.png',
+            'price'         => $product->price !== null ? number_format($product->price / 100, 2) : null,
             'originalPrice' => $hasSale ? number_format($product->original_price / 100, 2) : null,
-            'discount' => $hasSale ? (int)round((1 - $product->price / $product->original_price) * 100) : null,
-            'currency' => $product->currency_code ?: 'USD',
-            'rating' => $product->rating_value !== null ? round((float)$product->rating_value, 1) : null,
-            'reviews' => $product->review_count,
-            'orders' => $product->orders_count > 0 ? self::shortCount($product->orders_count) : null,
+            'discount'      => $hasSale ? (int) round((1 - $product->price / $product->original_price) * 100) : null,
+            'currency'      => $product->currency_code ?: 'USD',
+            'rating'        => $product->rating_value !== null ? round((float) $product->rating_value, 1) : null,
+            'reviews'       => $product->review_count,
+            'orders'        => $product->orders_count > 0 ? self::shortCount($product->orders_count) : null,
         ];
     }
 
@@ -169,6 +177,6 @@ final class CatalogController extends Controller
         if ($n >= 1_000) {
             return rtrim(rtrim(number_format($n / 1_000, 1), '0'), '.') . 'k';
         }
-        return (string)$n;
+        return (string) $n;
     }
 }

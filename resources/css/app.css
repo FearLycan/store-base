@@ -194,6 +194,161 @@
     background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
+  /* --- Product page: parsed description (highlights + lookbook) ------ */
+
+  .desc-highlights {
+    @apply rounded-xl bg-white p-5;
+    box-shadow: 0 0 0 1px rgb(17 24 39 / 0.06), 0 1px 2px rgb(17 24 39 / 0.04);
+  }
+
+  /* Masonry of marketing graphics. Square/portrait shots flow into balanced
+     columns; wide banners break out full-width (column-span) so they stay
+     legible and give the grid a bento-style rhythm. CSS multicol — no JS, no
+     fixed row heights, no cropping (each tile keeps its own aspect ratio). */
+  .desc-grid {
+    column-count: 2;
+    column-gap: 0.6rem;
+  }
+  @media (min-width: 1024px) {
+    .desc-grid { column-count: 3; }
+  }
+
+  /* One graphic tile. The whole tile opens the lightbox. Same border as the
+     specifications card (border-gray-200) for a consistent surface. */
+  .desc-shot {
+    @apply relative block w-full cursor-zoom-in overflow-hidden rounded-xl border border-gray-200 bg-gray-50;
+    break-inside: avoid;
+    margin-bottom: 0.6rem;
+    transition-property: border-color, box-shadow;
+    transition-duration: 160ms;
+  }
+  .desc-shot.is-wide { column-span: all; }
+  .desc-shot:hover {
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 6px 20px -8px rgb(17 24 39 / 0.18);
+  }
+
+  .desc-zoom {
+    @apply absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow-sm backdrop-blur;
+    opacity: 0;
+    transition-property: opacity, transform;
+    transition-duration: 160ms;
+    transform: scale(0.85);
+  }
+  .desc-shot:hover .desc-zoom { opacity: 1; transform: scale(1); }
+  @media (hover: none) { .desc-zoom { opacity: 1; transform: scale(1); } }
+
+  .desc-more {
+    @apply mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-700;
+    box-shadow: inset 0 0 0 1px rgb(17 24 39 / 0.08);
+    transition-property: box-shadow, color, transform;
+    transition-duration: 140ms;
+  }
+  .desc-more:hover { color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .desc-more:active { transform: scale(0.985); }
+
+  /* Lightbox controls */
+  /* Several of these are translate-positioned, so press feedback rides on
+     opacity rather than transform to avoid clobbering the translate. */
+  .lb-btn {
+    @apply flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur;
+    transition-property: background-color;
+    transition-duration: 140ms;
+  }
+  .lb-btn:hover { @apply bg-white/20; }
+  .lb-btn:active { @apply bg-white/30; }
+
+  /* --- Catalog filter bar ------------------------------------------- */
+
+  .filter-bar {
+    box-shadow:
+      0 0 0 1px rgb(17 24 39 / 0.06),
+      0 1px 2px rgb(17 24 39 / 0.04),
+      0 8px 24px -16px rgb(17 24 39 / 0.18);
+  }
+
+  /* Native <select>, restyled: borderless-feel pill with a custom chevron. */
+  .filter-select {
+    @apply h-10 cursor-pointer appearance-none rounded-xl border border-gray-200 bg-white pl-3.5 pr-9 text-sm font-medium text-gray-700;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239ca3af' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem;
+    transition-property: border-color, box-shadow;
+    transition-duration: 140ms;
+  }
+  .filter-select:hover { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .filter-select:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  /* Paired min/max price inputs sharing one pill. */
+  .filter-price {
+    @apply inline-flex h-10 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-500;
+    transition-property: border-color, box-shadow;
+    transition-duration: 140ms;
+  }
+  .filter-price:hover { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .filter-price:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .filter-price input {
+    @apply w-[3.25rem] bg-transparent font-medium tabular-nums text-gray-800 outline-none placeholder:font-normal placeholder:text-gray-400;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .filter-price input::-webkit-outer-spin-button,
+  .filter-price input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* Checkbox styled as a toggle chip (On sale / Has video). */
+  .filter-toggle {
+    @apply inline-flex h-10 cursor-pointer select-none items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-medium text-gray-600;
+    transition-property: border-color, color, background-color;
+    transition-duration: 120ms;
+  }
+  .filter-toggle:hover { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .filter-toggle input { @apply sr-only; }
+  .filter-dot {
+    @apply grid h-4 w-4 flex-none place-items-center rounded-[5px] border border-gray-300 text-white;
+    transition-property: background-color, border-color;
+    transition-duration: 120ms;
+  }
+  .filter-dot svg {
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 120ms ease, transform 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .filter-toggle input:checked ~ .filter-dot { background-color: var(--accent); border-color: var(--accent); }
+  .filter-toggle input:checked ~ .filter-dot svg { opacity: 1; transform: none; }
+  .filter-toggle:has(input:checked) {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 7%, transparent);
+    color: var(--accent);
+  }
+  .filter-toggle input:focus-visible ~ .filter-dot {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .filter-toggle:active { transform: scale(0.98); }
+
+  .filter-apply {
+    @apply inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-sm;
+    background-color: var(--accent);
+    transition-property: filter, transform;
+    transition-duration: 120ms;
+  }
+  .filter-apply:hover { filter: brightness(0.93); }
+  .filter-apply:active { transform: scale(0.98); }
+
+  .filter-reset {
+    @apply inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-gray-500;
+    transition-property: color, background-color;
+    transition-duration: 120ms;
+  }
+  .filter-reset:hover { @apply bg-gray-100 text-gray-700; }
+
   /* Catalog card hover slideshow: screenshots cross-fade over the poster.
      The stage is injected by JS on hover and sits above the poster img. */
   .card-stage {

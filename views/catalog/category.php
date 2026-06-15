@@ -16,5 +16,5 @@ $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
 <?= JsonLdRenderer::render(ListingPageSchemaBuilder::build($dataProvider, [], $home, $category->name, $category->name)) ?>
 <?= $this->render('_partials/breadcrumbs', ['items' => [['name' => 'Home', 'url' => Url::to(['/catalog/index'])], ['name' => $category->name, 'url' => null]]]) ?>
 <h1 class="mb-4 text-2xl font-bold"><?= Html::encode($category->name) ?></h1>
-<?= $this->render('_partials/filters', ['current' => $current]) ?>
+<?= $this->render('_partials/filters', ['current' => $current, 'showCategory' => false]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products here yet.']) ?>
