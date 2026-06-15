@@ -42,6 +42,35 @@ final class ProductController extends Controller
         return ExitCode::OK;
     }
 
+    /**
+     * Queues TITLE_REWRITE jobs to humanise long marketplace titles (and publish drafts).
+     * By default only products without a display_title; pass `--force=1` to regenerate all.
+     * Process the queue afterwards with `php yii sync/process`.
+     *
+     * @param int|null $storeId only this store when given
+     * @param int      $force   1 = re-rewrite products that already have a display_title
+     */
+    public function actionRewriteTitles(?int $storeId = null, int $force = 0, int $limit = 1000): int
+    {
+        $query = Product::find()->limit($limit);
+        if ($storeId !== null) {
+            $query->andWhere(['store_id' => $storeId]);
+        }
+        if ($force !== 1) {
+            $query->andWhere(['or', ['display_title' => null], ['display_title' => '']]);
+        }
+
+        $queued = 0;
+        foreach ($query->all() as $product) {
+            SyncJob::enqueue(SyncJobTypeEnum::TITLE_REWRITE, $product->store_id, $product->id, ['external_id' => $product->external_id]);
+            $queued++;
+        }
+
+        $this->stdout("Queued {$queued} title-rewrite job(s). Run `php yii sync/process` to execute.\n");
+
+        return ExitCode::OK;
+    }
+
     public function actionRefreshPrices(int $limit = 500): int
     {
         $intervalDays = (int)(Yii::$app->params['sync.priceRefreshIntervalDays'] ?? 1);

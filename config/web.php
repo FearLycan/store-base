@@ -60,6 +60,7 @@ $config = [
                 'catalog'                    => 'catalog/all',
                 'search'                     => 'catalog/search',
                 'search/suggest'             => 'catalog/suggest',
+                'product/<id:\d+>/images'    => 'catalog/images',
                 'go/<id:\d+>'                => 'go/index',
                 'aliexpress/callback'        => 'aliexpress/callback',
                 'category/<slug:[a-z0-9-]+>' => 'catalog/category',

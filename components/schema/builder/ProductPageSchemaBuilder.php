@@ -18,7 +18,7 @@ final class ProductPageSchemaBuilder
         $offers = OfferSchemaFactory::fromProduct($product, $offerUrl);
         return [
             ProductSchemaFactory::fromProduct($product, $productUrl, $offers),
-            BreadcrumbListSchemaFactory::fromView($links, $homeLink, (string)$product->title),
+            BreadcrumbListSchemaFactory::fromView($links, $homeLink, $product->displayName),
         ];
     }
 }

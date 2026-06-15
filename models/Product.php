@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace app\models;
 
 use app\enums\ProductStatusEnum;
-use yii\behaviors\SluggableBehavior;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
+use yii\helpers\Inflector;
 
 /**
  * @property int $id
@@ -16,6 +16,7 @@ use yii\db\ActiveRecord;
  * @property int|null $category_id
  * @property string $external_id
  * @property string|null $title
+ * @property string|null $display_title
  * @property string|null $slug
  * @property string|null $description
  * @property string|null $main_image
@@ -56,15 +57,10 @@ class Product extends ActiveRecord
 
     public function behaviors(): array
     {
+        // No SluggableBehavior: the slug is derived from the rewritten display_title (see
+        // SyncJobDispatcher::rewriteTitle), not from the raw keyword-stuffed title.
         return [
             TimestampBehavior::class,
-            'sluggable' => [
-                'class' => SluggableBehavior::class,
-                'attribute' => 'title',
-                'slugAttribute' => 'slug',
-                'ensureUnique' => true,
-                'immutable' => true,
-            ],
         ];
     }
 
@@ -78,7 +74,7 @@ class Product extends ActiveRecord
             [['review_impressions'], 'safe'],
             [['rating_value', 'rating_scale_max'], 'number'],
             [['external_id', 'currency_code', 'availability', 'status', 'source'], 'string', 'max' => 64],
-            [['title', 'slug'], 'string', 'max' => 512],
+            [['title', 'display_title', 'slug'], 'string', 'max' => 512],
             [['main_image', 'video_url', 'product_url', 'affiliate_url'], 'string', 'max' => 1024],
             [['status'], 'default', 'value' => ProductStatusEnum::ACTIVE->value],
             [['currency_code'], 'default', 'value' => 'USD'],
@@ -114,6 +110,38 @@ class Product extends ActiveRecord
     public function getReviews(): ActiveQuery
     {
         return $this->hasMany(ProductReview::class, ['product_id' => 'id'])->orderBy(['reviewed_at' => SORT_DESC]);
+    }
+
+    /** Human-friendly name for the storefront; falls back to the raw title until rewritten. */
+    public function getDisplayName(): string
+    {
+        return ($this->display_title !== null && $this->display_title !== '')
+            ? $this->display_title
+            : (string)$this->title;
+    }
+
+    /** Slugify $base and append -2, -3, … until it is unique (optionally ignoring one row). */
+    public static function generateUniqueSlug(string $base, ?int $excludeId = null): string
+    {
+        $slug = Inflector::slug($base);
+        if ($slug === '') {
+            $slug = 'product';
+        }
+        $candidate = $slug;
+        $i = 2;
+        while (self::slugExists($candidate, $excludeId)) {
+            $candidate = $slug . '-' . $i++;
+        }
+        return $candidate;
+    }
+
+    private static function slugExists(string $slug, ?int $excludeId): bool
+    {
+        $query = self::find()->where(['slug' => $slug]);
+        if ($excludeId !== null) {
+            $query->andWhere(['<>', 'id', $excludeId]);
+        }
+        return $query->exists();
     }
 
     /**

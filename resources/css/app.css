@@ -119,6 +119,19 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
 
+  /* Prev/next arrows overlaid on the main image */
+  .pdp-nav {
+    @apply absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/85 text-gray-700 opacity-0 shadow-sm backdrop-blur;
+    transition-property: opacity, background-color, transform;
+    transition-duration: 140ms;
+  }
+  .group:hover .pdp-nav { @apply opacity-100; }
+  .pdp-nav:hover { @apply bg-white text-gray-900; }
+  .pdp-nav:active { transform: translateY(-50%) scale(0.92); }
+  @media (hover: none) {
+    .pdp-nav { @apply opacity-100; }
+  }
+
   /* Image swatch (a colour/finish that carries its own thumbnail) */
   .variant-swatch {
     @apply relative flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white px-1 text-center text-[11px] font-medium leading-tight text-gray-600;
@@ -180,6 +193,76 @@
     color: var(--accent);
     background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   }
+
+  /* Catalog card hover slideshow: screenshots cross-fade over the poster.
+     The stage is injected by JS on hover and sits above the poster img. */
+  .card-stage {
+    @apply pointer-events-none absolute inset-0;
+    z-index: 1;
+  }
+  .card-shot {
+    @apply absolute inset-0 h-full w-full object-cover;
+    opacity: 0;
+    transform: scale(1.04);
+    transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1), transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: opacity, transform;
+  }
+  /* Active frame fades in (opacity transition) while a slow Ken-Burns push +
+     drift runs on transform (keyframes) — they never fight, different props.
+     Even/odd frames drift opposite ways so consecutive photos feel distinct. */
+  .card-shot.is-on {
+    opacity: 1;
+    animation: card-ken 6.5s ease-out forwards;
+  }
+  .card-shot:nth-child(even).is-on { animation-name: card-ken-alt; }
+
+  /* Progress pills — capsules that fill left-to-right as each photo plays */
+  .card-pills {
+    @apply pointer-events-none absolute inset-x-0 bottom-2 flex items-center justify-center gap-1.5;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .card-pills.is-shown { opacity: 1; }
+  .card-pill {
+    position: relative;
+    height: 5px;
+    width: 5px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s ease;
+  }
+  .card-pill.is-on {
+    width: 24px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+  .card-pill-fill {
+    position: absolute;
+    inset: 0;
+    width: 0;
+    border-radius: inherit;
+    background: var(--accent);
+  }
+  .card-pill.is-on .card-pill-fill {
+    animation: card-pill-fill var(--slide, 3000ms) linear forwards;
+  }
+}
+
+@keyframes card-ken {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to   { transform: scale(1.15) translate3d(-1.6%, -1.1%, 0); }
+}
+
+@keyframes card-ken-alt {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to   { transform: scale(1.15) translate3d(1.6%, 1.1%, 0); }
+}
+
+@keyframes card-pill-fill {
+  from { width: 0; }
+  to   { width: 100%; }
 }
 
 @keyframes search-row-in {

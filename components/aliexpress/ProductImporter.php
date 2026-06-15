@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\components\aliexpress;
 
+use app\enums\ProductStatusEnum;
 use app\models\Category;
 use app\models\Product;
 use app\models\ProductAttribute;
@@ -38,6 +39,11 @@ final class ProductImporter
         $transaction = Yii::$app->db->beginTransaction();
         try {
             $product = Product::findOrNew($store->id, $externalId);
+            // New products stay hidden (draft) until the TITLE_REWRITE job humanises the title and
+            // assigns a slug; existing products keep whatever status they already have.
+            if ($product->isNewRecord) {
+                $product->status = ProductStatusEnum::DRAFT->value;
+            }
             $product->category_id   = Category::resolveLeafFromApi($core) ?? $product->category_id;
             $product->title         = $core['name'] ?? $product->title;
             $product->product_url   = $core['url'] ?? $product->product_url;

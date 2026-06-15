@@ -107,6 +107,33 @@ final class CatalogController extends Controller
         ];
     }
 
+    /**
+     * Image URLs for a single product, main image first, deduped and capped.
+     * Fed to the catalog card's on-hover mini gallery. Returns an empty list
+     * for unknown/inactive products so the card silently stays on its poster.
+     */
+    public function actionImages(int $id): array
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $product = CatalogQuery::active()->andWhere(['product.id' => $id])->with('images')->one();
+        if ($product === null) {
+            return ['images' => []];
+        }
+
+        $urls = [];
+        if ($product->main_image) {
+            $urls[] = (string)$product->main_image;
+        }
+        foreach ($product->images as $img) {
+            $urls[] = (string)$img->url;
+        }
+
+        $urls = array_values(array_unique(array_filter($urls, static fn ($u): bool => $u !== '')));
+
+        return ['images' => array_slice($urls, 0, 6)];
+    }
+
     private static function categoryPayload(Category $category): array
     {
         return [
@@ -120,7 +147,7 @@ final class CatalogController extends Controller
         $hasSale = $product->price !== null && $product->original_price !== null && $product->original_price > $product->price;
 
         return [
-            'title' => (string)$product->title,
+            'title' => $product->displayName,
             'url' => Url::to(['/product/view', 'slug' => $product->slug]),
             'image' => $product->main_image ?: '/img/placeholder.png',
             'price' => $product->price !== null ? number_format($product->price / 100, 2) : null,

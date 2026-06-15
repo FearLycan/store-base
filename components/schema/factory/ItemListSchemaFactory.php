@@ -26,7 +26,7 @@ final class ItemListSchemaFactory
                 '@type'    => 'ListItem',
                 'position' => $position++,
                 'url'      => Url::to(['/product/view', 'slug' => $model->slug], true),
-                'name'     => trim((string)$model->title) !== '' ? (string)$model->title : 'Product',
+                'name'     => trim($model->displayName) !== '' ? $model->displayName : 'Product',
             ];
         }
 

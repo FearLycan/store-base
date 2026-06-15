@@ -9,7 +9,7 @@ final class ProductSchemaFactory
 {
     public static function fromProduct(Product $product, string $productUrl, array $offers): array
     {
-        $name = trim((string)$product->title) !== '' ? (string)$product->title : 'Product';
+        $name = trim($product->displayName) !== '' ? $product->displayName : 'Product';
 
         $schema = [
             '@type'       => 'Product',
@@ -40,7 +40,7 @@ final class ProductSchemaFactory
     private static function resolveDescription(Product $product): string
     {
         $d = trim(strip_tags((string)$product->description));
-        if ($d === '') { return (string)$product->title; }
+        if ($d === '') { return $product->displayName; }
         return mb_strlen($d) <= 220 ? $d : rtrim(mb_substr($d, 0, 220)) . '...';
     }
 

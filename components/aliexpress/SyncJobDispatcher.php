@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace app\components\aliexpress;
 
+use app\components\llm\TitleRewriter;
+use app\enums\ProductStatusEnum;
 use app\enums\SyncJobTypeEnum;
 use app\models\Product;
 use app\models\ProductReview;
 use app\models\Store;
 use app\models\SyncJob;
 use RuntimeException;
+use Throwable;
+use Yii;
 
 /**
  * Executes one SyncJob by type and enqueues follow-up jobs. The console worker
@@ -21,6 +25,7 @@ final class SyncJobDispatcher
         private readonly AliExpressStoreScraper  $storeScraper = new AliExpressStoreScraper(),
         private readonly ProductImporter         $importer = new ProductImporter(),
         private readonly AliExpressReviewScraper  $reviewScraper = new AliExpressReviewScraper(),
+        private readonly TitleRewriter            $titleRewriter = new TitleRewriter(),
     ) {
     }
 
@@ -32,6 +37,7 @@ final class SyncJobDispatcher
             SyncJobTypeEnum::PRODUCT_DETAIL  => $this->importProduct($job),
             SyncJobTypeEnum::PRODUCT_REVIEWS => $this->syncReviews($job),
             SyncJobTypeEnum::PRICE_REFRESH   => $this->refreshPrice($job),
+            SyncJobTypeEnum::TITLE_REWRITE   => $this->rewriteTitle($job),
         };
     }
 
@@ -67,6 +73,36 @@ final class SyncJobDispatcher
         }
         $product = $this->importer->import($store, $externalId);
         SyncJob::enqueue(SyncJobTypeEnum::PRODUCT_REVIEWS, $store->id, $product->id, ['external_id' => $externalId]);
+
+        // New products are imported as DRAFT and only go live once their title is humanised.
+        if ($product->display_title === null || $product->display_title === '') {
+            SyncJob::enqueue(SyncJobTypeEnum::TITLE_REWRITE, $store->id, $product->id, ['external_id' => $externalId]);
+        }
+    }
+
+    /**
+     * Rewrites the raw marketplace title into a human-friendly display_title, derives the slug from
+     * it, and publishes the product (draft -> active). Falls back to a cheap offline cleanup when the
+     * LLM is unavailable so the product still goes live.
+     */
+    private function rewriteTitle(SyncJob $job): void
+    {
+        $product = Product::findOne((int)$job->product_id) ?? throw new RuntimeException('Product not found.');
+        $raw = (string)$product->title;
+
+        try {
+            $clean = $this->titleRewriter->rewrite($raw);
+        } catch (Throwable $e) {
+            Yii::warning("Title rewrite fell back for product #{$product->id}: {$e->getMessage()}", __METHOD__);
+            $clean = TitleRewriter::fallback($raw);
+        }
+
+        $product->display_title = $clean;
+        $product->slug = Product::generateUniqueSlug($clean, $product->id);
+        if ($product->status === ProductStatusEnum::DRAFT->value) {
+            $product->status = ProductStatusEnum::ACTIVE->value;
+        }
+        $product->save(false, ['display_title', 'slug', 'status']);
     }
 
     private function syncReviews(SyncJob $job): void

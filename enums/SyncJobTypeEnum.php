@@ -10,4 +10,5 @@ enum SyncJobTypeEnum: string
     case PRODUCT_DETAIL  = 'product_detail';
     case PRODUCT_REVIEWS = 'product_reviews';
     case PRICE_REFRESH   = 'price_refresh';
+    case TITLE_REWRITE   = 'title_rewrite';
 }

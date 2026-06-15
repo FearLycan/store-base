@@ -11,8 +11,8 @@ use yii\helpers\Json;
 use yii\helpers\Url;
 
 $canonical = Url::to(['/product/view', 'slug' => $product->slug], true);
-$descText = $product->description !== null ? trim(strip_tags((string)$product->description)) : (string)$product->title;
-Seo::apply($this, (string)$product->title, $descText !== '' ? $descText : (string)$product->title, $canonical, false, (string)$product->main_image);
+$descText = $product->description !== null ? trim(strip_tags((string)$product->description)) : $product->displayName;
+Seo::apply($this, $product->displayName, $descText !== '' ? $descText : $product->displayName, $canonical, false, (string)$product->main_image);
 
 $images = [];
 foreach ($product->images as $img) { $images[] = $img->url; }
@@ -142,18 +142,29 @@ $cfg = [
 <?= $this->render('//catalog/_partials/breadcrumbs', ['items' => array_values(array_filter([
     ['name' => 'Home', 'url' => Url::to(['/catalog/index'])],
     $product->category ? ['name' => $product->category->name, 'url' => Url::to(['/catalog/category', 'slug' => $product->category->slug])] : null,
-    ['name' => (string)$product->title, 'url' => null],
+    ['name' => $product->displayName, 'url' => null],
 ]))]) ?>
 
 <div class="grid gap-8 lg:grid-cols-2" x-data="productView(<?= Html::encode(Json::encode($cfg)) ?>)">
     <div>
-        <div class="aspect-square select-none overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div class="group relative aspect-square select-none overflow-hidden rounded-xl border border-gray-200 bg-white">
             <?php if ($product->video_url): ?>
             <video x-show="showVideo" x-cloak controls preload="none" poster="<?= Html::encode($images[0]) ?>" class="h-full w-full object-contain">
                 <source src="<?= Html::encode((string)$product->video_url) ?>" type="video/mp4">
             </video>
             <?php endif; ?>
-            <img x-show="!showVideo" :src="main" alt="<?= Html::encode((string)$product->title) ?>" class="h-full w-full object-contain transition-opacity duration-150" loading="lazy">
+            <img x-show="!showVideo" :src="main" alt="<?= Html::encode($product->displayName) ?>" class="h-full w-full object-contain transition-opacity duration-150" loading="lazy">
+            <?php if (count($images) > 1): ?>
+            <button type="button" @click="prev()" x-show="!showVideo" x-cloak class="pdp-nav left-2" aria-label="Previous image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button type="button" @click="next()" x-show="!showVideo" x-cloak class="pdp-nav right-2" aria-label="Next image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+            <div x-show="!showVideo" x-cloak class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium tabular-nums text-white opacity-0 transition-opacity group-hover:opacity-100">
+                <span x-text="imageIndex + 1"></span>/<?= count($images) ?>
+            </div>
+            <?php endif; ?>
         </div>
         <?php if (count($images) > 1 || $product->video_url): ?>
         <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -173,7 +184,7 @@ $cfg = [
     </div>
 
     <div>
-        <h1 class="text-2xl font-bold leading-snug"><?= Html::encode((string)$product->title) ?></h1>
+        <h1 class="text-2xl font-bold leading-snug"><?= Html::encode($product->displayName) ?></h1>
 
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <?= $this->render('//catalog/_partials/stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?>
@@ -309,6 +320,10 @@ document.addEventListener('alpine:init', () => {
         showVideo: false,
 
         setMain(src) { this.main = src; this.showVideo = false; },
+
+        get imageIndex() { const i = this.images.indexOf(this.main); return i < 0 ? 0 : i; },
+        next() { this.main = this.images[(this.imageIndex + 1) % this.images.length]; this.showVideo = false; },
+        prev() { this.main = this.images[(this.imageIndex - 1 + this.images.length) % this.images.length]; this.showVideo = false; },
 
         pick(gi, vi) {
             const g = this.groups[gi];

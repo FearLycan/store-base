@@ -22,6 +22,12 @@ $params = [
     'aliexpress.mtop.lang'    => 'en_US',
     'aliexpress.mtop.country' => 'US',
 
+    // --- Ollama Cloud (LLM product-title rewriting) ---
+    'ollama.endpoint' => 'https://ollama.com/api/generate',
+    'ollama.model'    => 'gpt-oss:120b-cloud',
+    'ollama.apiKey'   => '',   // set in params-local.php
+    'ollama.timeout'  => 60,
+
     // --- Sync cadence / batching ---
     'sync.discoveryIntervalHours'    => 6,
     'sync.priceRefreshIntervalDays'  => 1,
