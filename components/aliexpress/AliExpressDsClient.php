@@ -1,0 +1,434 @@
+<?php
+
+declare(strict_types=1);
+
+namespace app\components\aliexpress;
+
+use app\models\Setting;
+use RuntimeException;
+use Yii;
+use yii\helpers\Json;
+use yii\httpclient\Client;
+
+/**
+ * AliExpress Dropshipping API client (the "OP" gateway on api-sg.aliexpress.com).
+ *
+ * Unlike the Affiliate API (app_key + secret only), the DS API is OAuth-gated: a one-time
+ * browser authorize grants a `code`, which is exchanged for an `access_token` (~10h) plus a
+ * long-lived `refresh_token`, both persisted in {@see Setting}. {@see accessToken()} auto-refreshes
+ * shortly before expiry.
+ *
+ * Signing/transport mirror the documented OP convention (verified against the public ae-api SDK):
+ *   - sign_method=sha256, HMAC-SHA256(app_secret, signBase) uppercase hex
+ *   - signBase = [apiPath]+ sorted(key.value) — the path prefix is used for the /rest/auth/* system
+ *     calls and is empty for the /sync business gateway
+ *   - timestamp is epoch milliseconds; requests are POST form-urlencoded
+ *
+ * {@see fetch()} returns the same shape as {@see AliExpressProductScraper::fetch()} so the importer
+ * can swap one for the other (DS primary, x5sec scraper fallback).
+ */
+final class AliExpressDsClient
+{
+    private const API_BASE = 'https://api-sg.aliexpress.com';
+    private const AUTHORIZE_URL = 'https://api-sg.aliexpress.com/oauth/authorize';
+    private const PRODUCT_METHOD = 'aliexpress.ds.product.get';
+
+    /** Refresh the access token when fewer than this many seconds remain before expiry. */
+    private const REFRESH_SKEW = 600;
+
+    private Client $client;
+
+    public function __construct(?Client $client = null)
+    {
+        $this->client = $client ?? new Client(['transport' => 'yii\httpclient\CurlTransport']);
+    }
+
+    // --- OAuth -------------------------------------------------------------
+
+    public function isConnected(): bool
+    {
+        return trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, '')) !== '';
+    }
+
+    /**
+     * The AE consent page the admin visits; `redirect_uri` must match the one registered in the AE
+     * console. `state` is echoed back to the callback for CSRF protection (the callback is public).
+     */
+    public function authorizeUrl(string $redirectUri, string $state = ''): string
+    {
+        $query = [
+            'response_type' => 'code',
+            'force_auth'    => 'true',
+            'redirect_uri'  => $redirectUri,
+            'client_id'     => $this->appKey(),
+        ];
+        if ($state !== '') {
+            $query['state'] = $state;
+        }
+
+        return self::AUTHORIZE_URL . '?' . http_build_query($query);
+    }
+
+    /** Exchange the authorization `code` for tokens and persist them. */
+    public function exchangeCode(string $code): void
+    {
+        $data = $this->request('/auth/token/create', ['code' => $code]);
+        $this->persistTokens($data);
+    }
+
+    /** Force a refresh using the stored refresh_token; persists the new tokens. */
+    public function refreshAccessToken(): void
+    {
+        $refresh = trim((string)Setting::get(Setting::DS_REFRESH_TOKEN, ''));
+        if ($refresh === '') {
+            throw new RuntimeException('No Dropshipping refresh_token stored — re-authorize the Dropshipping API.');
+        }
+        $data = $this->request('/auth/token/refresh', ['refresh_token' => $refresh]);
+        $this->persistTokens($data);
+    }
+
+    /** A valid access token, auto-refreshed when close to expiry. */
+    public function accessToken(): string
+    {
+        $token = trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, ''));
+        if ($token === '') {
+            throw new RuntimeException('Dropshipping API not connected — authorize it in admin (Settings → Dropshipping API).');
+        }
+
+        $expiresAt = (int)Setting::get(Setting::DS_TOKEN_EXPIRES_AT, '0');
+        if ($expiresAt > 0 && ($expiresAt - time()) < self::REFRESH_SKEW) {
+            $this->refreshAccessToken();
+            $token = trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, ''));
+        }
+
+        return $token;
+    }
+
+    // --- Product detail ----------------------------------------------------
+
+    /**
+     * Fetch the full detail bundle for a product via aliexpress.ds.product.get, normalized to the
+     * scraper's contract so {@see ProductImporter} treats both sources identically.
+     *
+     * @return array{description:?string, images:array<int,string>, variants:array<int,array>, attributes:array<int,array{name:string,value:?string}>}
+     */
+    public function fetch(string $productId): array
+    {
+        $response = $this->request('/sync', [
+            'method'          => self::PRODUCT_METHOD,
+            'access_token'    => $this->accessToken(),
+            'product_id'      => $productId,
+            'ship_to_country' => (string)(Yii::$app->params['aliexpress.shipToCountry'] ?? 'US'),
+            'target_currency' => (string)(Yii::$app->params['aliexpress.targetCurrency'] ?? 'USD'),
+            'target_language' => (string)(Yii::$app->params['aliexpress.targetLanguage'] ?? 'EN'),
+        ]);
+
+        $result = $response['aliexpress_ds_product_get_response']['result']
+            ?? $response['result']
+            ?? null;
+        if (!is_array($result)) {
+            throw new RuntimeException('ds.product.get returned no result for ' . $productId . '.');
+        }
+
+        $base = is_array($result['ae_item_base_info_dto'] ?? null) ? $result['ae_item_base_info_dto'] : [];
+        $multimedia = is_array($result['ae_multimedia_info_dto'] ?? null) ? $result['ae_multimedia_info_dto'] : [];
+
+        return [
+            'description' => $this->extractDescription($base),
+            'images'      => $this->extractImages($multimedia),
+            'variants'    => $this->extractVariants($result),
+            'attributes'  => $this->extractAttributes($result),
+        ];
+    }
+
+    private function extractDescription(array $base): ?string
+    {
+        foreach (['detail', 'mobile_detail'] as $key) {
+            $value = $base[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array<int,string> */
+    private function extractImages(array $multimedia): array
+    {
+        $raw = $multimedia['image_urls'] ?? '';
+        if (!is_string($raw) || $raw === '') {
+            return [];
+        }
+
+        $urls = [];
+        foreach (preg_split('~[;\s]+~', $raw) ?: [] as $entry) {
+            $url = $this->normalizeUrl((string)$entry);
+            if ($url !== null) {
+                $urls[] = $url;
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    /** @return array<int,array{name:string,value:?string}> */
+    private function extractAttributes(array $result): array
+    {
+        $props = $this->extractList($result['ae_item_properties'] ?? null, 'ae_item_property');
+
+        $attributes = [];
+        foreach ($props as $prop) {
+            if (!is_array($prop)) {
+                continue;
+            }
+            $name = trim((string)($prop['attr_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $value = $prop['attr_value'] ?? null;
+            $attributes[] = ['name' => $name, 'value' => is_scalar($value) ? (string)$value : null];
+        }
+
+        return $attributes;
+    }
+
+    /** @return array<int,array> */
+    private function extractVariants(array $result): array
+    {
+        $skus = $this->extractList($result['ae_item_sku_info_dtos'] ?? null, 'ae_item_sku_info_d_t_o');
+
+        $variants = [];
+        foreach ($skus as $sku) {
+            if (!is_array($sku)) {
+                continue;
+            }
+
+            $skuProps = $this->extractList(
+                $sku['aeop_s_k_u_propertys'] ?? $sku['ae_sku_property_dtos'] ?? null,
+                'ae_sku_property_d_t_o',
+            );
+
+            $nameParts = [];
+            $options = [];
+            $image = null;
+            foreach ($skuProps as $prop) {
+                if (!is_array($prop)) {
+                    continue;
+                }
+                $propName = trim((string)($prop['sku_property_name'] ?? ''));
+                $propValue = trim((string)($prop['property_value_definition_name'] ?? $prop['sku_property_value'] ?? ''));
+                if ($propValue !== '') {
+                    $nameParts[] = $propValue;
+                    if ($propName !== '') {
+                        $options[$propName] = $propValue;
+                    }
+                }
+                if ($image === null && isset($prop['sku_image'])) {
+                    $image = $this->normalizeUrl((string)$prop['sku_image']);
+                }
+            }
+
+            $stock = $sku['sku_available_stock'] ?? $sku['s_k_u_available_stock'] ?? $sku['ipm_sku_stock'] ?? null;
+
+            // `sku_attr` ("propId:valueId#label;…") is the identifier the DS order API needs; keep it
+            // alongside the human-facing option map. Prefer the numeric `sku_id` as the stable key
+            // (the `id`/`sku_code` fields echo the long sku_attr path and can blow the 64-char column).
+            $skuAttr = $this->scalar($sku, ['sku_attr']);
+            if ($skuAttr !== null) {
+                $options['_sku_attr'] = $skuAttr;
+            }
+
+            $variants[] = [
+                'external_sku_id' => $this->scalar($sku, ['sku_id', 'id', 'sku_code']),
+                'name'            => $nameParts !== [] ? implode(' / ', $nameParts) : null,
+                'options'         => $options !== [] ? $options : null,
+                'price'           => $this->moneyToCents((string)($sku['offer_sale_price'] ?? $sku['sku_price'] ?? '')),
+                'original_price'  => $this->moneyToCents((string)($sku['sku_price'] ?? '')),
+                'stock'           => is_numeric($stock) ? (int)$stock : null,
+                'image'           => $image,
+            ];
+        }
+
+        return $variants;
+    }
+
+    // --- transport ---------------------------------------------------------
+
+    /**
+     * Signed POST to the OP gateway. `/auth/*` system methods go to the `/rest` host and sign with
+     * the API path; the `/sync` business gateway signs without a path prefix.
+     */
+    private function request(string $pathname, array $params): array
+    {
+        $appSecret = $this->appSecret();
+
+        $params = array_merge($params, [
+            'app_key'     => $this->appKey(),
+            'sign_method' => 'sha256',
+            'timestamp'   => (string)((int)round(microtime(true) * 1000)),
+        ]);
+        $params = array_filter($params, static fn ($v): bool => $v !== null && $v !== '');
+
+        $signPath = $pathname === '/sync' ? '' : $pathname;
+        $params['sign'] = $this->sign($signPath, $params, $appSecret);
+
+        $url = self::API_BASE . (str_starts_with($pathname, '/auth') ? '/rest' : '') . $pathname;
+
+        $response = $this->client
+            ->createRequest()
+            ->setMethod('POST')
+            ->setUrl($url)
+            ->setFormat(Client::FORMAT_URLENCODED)
+            ->addHeaders(['Accept' => 'application/json'])
+            ->setData($params)
+            ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
+            ->send();
+
+        if (!$response->isOk) {
+            throw new RuntimeException('Dropshipping API HTTP error: ' . $response->statusCode . ' ' . $response->getContent());
+        }
+
+        $data = $response->getData();
+        if (!is_array($data)) {
+            throw new RuntimeException('Dropshipping API response is not valid JSON.');
+        }
+
+        $error = $data['error_response'] ?? null;
+        if (is_array($error)) {
+            $message = trim((string)($error['code'] ?? '') . ' ' . (string)($error['msg'] ?? $error['message'] ?? ''));
+            throw new RuntimeException('Dropshipping API error: ' . ($message !== '' ? $message : 'unknown error'));
+        }
+        // OP gateway surfaces auth/system failures at the top level rather than under error_response.
+        if (isset($data['code'], $data['request_id']) && (string)$data['code'] !== '0' && (string)$data['code'] !== '') {
+            $message = trim((string)$data['code'] . ' ' . (string)($data['message'] ?? $data['msg'] ?? ''));
+            throw new RuntimeException('Dropshipping API error: ' . $message);
+        }
+
+        return $data;
+    }
+
+    private function sign(string $signPath, array $params, string $appSecret): string
+    {
+        ksort($params);
+        $base = $signPath;
+        foreach ($params as $key => $value) {
+            if ($key === 'sign') {
+                continue;
+            }
+            $base .= $key . $value;
+        }
+
+        return strtoupper(hash_hmac('sha256', $base, $appSecret));
+    }
+
+    private function persistTokens(array $data): void
+    {
+        $access = trim((string)($data['access_token'] ?? ''));
+        if ($access === '') {
+            $message = trim((string)($data['code'] ?? '') . ' ' . (string)($data['message'] ?? $data['msg'] ?? ''));
+            throw new RuntimeException('Token exchange returned no access_token' . ($message !== '' ? ' (' . $message . ')' : '') . '.');
+        }
+
+        Setting::set(Setting::DS_ACCESS_TOKEN, $access);
+
+        $refresh = trim((string)($data['refresh_token'] ?? ''));
+        if ($refresh !== '') {
+            Setting::set(Setting::DS_REFRESH_TOKEN, $refresh);
+        }
+
+        // `expires_in` is seconds; fall back to the absolute `expire_time` (epoch ms) when absent.
+        if (isset($data['expires_in']) && is_numeric($data['expires_in'])) {
+            $expiresAt = time() + (int)$data['expires_in'];
+        } elseif (isset($data['expire_time']) && is_numeric($data['expire_time'])) {
+            $expiresAt = (int)round((int)$data['expire_time'] / 1000);
+        } else {
+            $expiresAt = time() + 3600;
+        }
+        Setting::set(Setting::DS_TOKEN_EXPIRES_AT, (string)$expiresAt);
+    }
+
+    // --- helpers -----------------------------------------------------------
+
+    /**
+     * AE wraps repeated nodes inconsistently: a bare list, or `{ "<child>": [...] }`, or a single
+     * object. Normalize all three to a plain list.
+     *
+     * @return array<int,mixed>
+     */
+    private function extractList(mixed $node, string $childKey): array
+    {
+        if (is_array($node) && isset($node[$childKey]) && is_array($node[$childKey])) {
+            $node = $node[$childKey];
+        }
+        if (!is_array($node)) {
+            return [];
+        }
+        if ($node === [] || array_is_list($node)) {
+            return $node;
+        }
+
+        return [$node];
+    }
+
+    private function scalar(array $source, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $source[$key] ?? null;
+            if (is_scalar($value)) {
+                $normalized = trim((string)$value);
+                if ($normalized !== '') {
+                    return $normalized;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** "$0.99" / "3.48" -> integer minor units (cents). Returns null when unparseable. */
+    private function moneyToCents(string $raw): ?int
+    {
+        if ($raw === '' || preg_match('~(\d+(?:[.,]\d+)?)~', $raw, $m) !== 1) {
+            return null;
+        }
+
+        return (int)round((float)str_replace(',', '.', $m[1]) * 100);
+    }
+
+    private function normalizeUrl(string $value): ?string
+    {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return null;
+        }
+        if (str_starts_with($normalized, '//')) {
+            $normalized = 'https:' . $normalized;
+        }
+        if (!preg_match('~^https?://~i', $normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function appKey(): string
+    {
+        $key = trim((string)(Yii::$app->params['aliexpress.dropshipping.appKey'] ?? ''));
+        if ($key === '') {
+            throw new RuntimeException('aliexpress.dropshipping.appKey is not configured (set it in params-local.php).');
+        }
+
+        return $key;
+    }
+
+    private function appSecret(): string
+    {
+        $secret = trim((string)(Yii::$app->params['aliexpress.dropshipping.appSecret'] ?? ''));
+        if ($secret === '') {
+            throw new RuntimeException('aliexpress.dropshipping.appSecret is not configured (set it in params-local.php).');
+        }
+
+        return $secret;
+    }
+}

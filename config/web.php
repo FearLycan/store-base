@@ -61,6 +61,7 @@ $config = [
                 'search'                     => 'catalog/search',
                 'search/suggest'             => 'catalog/suggest',
                 'go/<id:\d+>'                => 'go/index',
+                'aliexpress/callback'        => 'aliexpress/callback',
                 'category/<slug:[a-z0-9-]+>' => 'catalog/category',
                 'product/<slug:[a-z0-9-]+>'  => 'product/view',
                 'login'                      => 'auth/default/login',

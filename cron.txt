@@ -1,0 +1,109 @@
+==============================================================================
+ store-base — harmonogram zadań (cron)
+==============================================================================
+
+JAK TO DZIAŁA
+-------------
+Synchronizacja jest kolejkowa i dzieli się na dwie role:
+
+  • PRODUCENCI  (store/discover, product/refresh-prices, review/sync)
+      — tylko WSTAWIAJĄ joby do kolejki (tabela sync_job). Same nie wołają
+        AliExpress. Każdy sam sprawdza, co jest "przeterminowane" wg progów
+        z config/params.php, więc można je odpalać częściej niż próg — nic
+        się nie zdubluje.
+
+  • WORKER  (sync/process)
+      — WYKONUJE joby z kolejki: discovery sklepu, import detali przez
+        Dropshipping API (galeria HD / warianty / atrybuty), recenzje, ceny.
+        To on faktycznie odpytuje AliExpress. Musi chodzić często.
+
+Token Dropshipping API odświeża się sam (klient robi refresh ~10 min przed
+wygaśnięciem przy każdym imporcie). Dopóki worker chodzi, nic nie trzeba
+robić ręcznie z tokenem.
+
+Progi cadence (config/params.php):
+  sync.discoveryIntervalHours    = 6    # jak często sklep jest "due" na discovery
+  sync.priceRefreshIntervalDays  = 1    # po ilu dniach cena jest "stale"
+  sync.reviewRefreshIntervalDays = 3    # po ilu dniach recenzje są "stale"
+  sync.batchSize                 = 20   # ile jobów bierze jeden sync/process
+  sync.maxAttempts               = 5    # po ilu próbach job idzie w "failed"
+
+
+------------------------------------------------------------------------------
+ CRONTAB (serwer produkcyjny, Linux)
+------------------------------------------------------------------------------
+# Podmień /var/www/store-base na realną ścieżkę projektu.
+# Cron używa strefy czasowej serwera — godziny poniżej to czas serwera.
+# Logi lecą do runtime/logs/ — upewnij się, że katalog istnieje i jest zapisywalny.
+
+# --- WORKER: drenuje kolejkę co 10 min (robi realne wywołania AE) ---------
+*/10 * * * *   cd /var/www/store-base && php yii sync/process >> runtime/logs/sync.log 2>&1
+
+# --- PRODUCENCI (tylko kolejkują joby; worker wyżej je wykonuje) ----------
+
+# Discovery: kolejkuje nowe produkty dla sklepów, które są "due" (próg 6h).
+# Sam pilnuje progu, więc sprawdzanie co godzinę jest OK.
+0 * * * *      cd /var/www/store-base && php yii store/discover >> runtime/logs/sync.log 2>&1
+
+# Ceny: kolejkuje odświeżenie ceny/dostępności dla produktów starszych niż 1 dzień.
+# Raz na dobę (03:15).
+15 3 * * *     cd /var/www/store-base && php yii product/refresh-prices >> runtime/logs/sync.log 2>&1
+
+# Recenzje: kolejkuje re-sync recenzji dla produktów starszych niż 3 dni.
+# Raz na dobę (03:30) — sam ogranicza się progiem, więc codzienne odpalenie
+# realnie dotknie tylko tych faktycznie przeterminowanych.
+30 3 * * *     cd /var/www/store-base && php yii review/sync >> runtime/logs/sync.log 2>&1
+
+# --- UTRZYMANIE -----------------------------------------------------------
+
+# Sitemap: regeneruje gzipowaną mapę strony. Raz na dobę (04:00), po syncach.
+0 4 * * *      cd /var/www/store-base && php yii sitemap/generate >> runtime/logs/sitemap.log 2>&1
+
+
+------------------------------------------------------------------------------
+ LOKALNIE (Docker na Windows)
+------------------------------------------------------------------------------
+Na Windows nie ma crona — użyj Harmonogramu zadań (Task Scheduler) i wołaj
+te same komendy przez kontener, np.:
+
+  docker exec store-base php yii sync/process
+  docker exec store-base php yii store/discover
+  docker exec store-base php yii product/refresh-prices
+  docker exec store-base php yii review/sync
+  docker exec store-base php yii sitemap/generate
+
+Do szybkiego testu możesz po prostu odpalać `sync/process` ręcznie w pętli.
+
+Uwaga wydajnościowa: jeden `sync/process` bierze 20 jobów i czeka 2–5 s między
+każdym (rate-limit do AE), więc po dużym discovery (sklep potrafi mieć setki
+produktów) kolejka drenuje się ~120 jobów/h. Żeby przyspieszyć, albo zwiększ
+sync.batchSize w params, albo podaj większy limit ręcznie:
+
+  docker exec store-base php yii sync/process 100
+
+
+==============================================================================
+ KOMENDY RĘCZNE / JEDNORAZOWE (NIE w cronie)
+==============================================================================
+
+# Dodaj nowy sklep źródłowy i zakolejkuj jego pierwsze discovery:
+docker exec store-base php yii store/add "https://pl.aliexpress.com/store/1102516804" "Nazwa sklepu"
+
+# Reimport detali WSZYSTKICH istniejących produktów przez DS API
+# (np. po zmianach w mapowaniu — discovery NIE rusza istniejących).
+# Potem przepuść kolejkę workerem.
+docker exec store-base php yii product/reimport
+docker exec store-base php yii product/reimport --storeId=2 --limit=50   # zawężone
+docker exec store-base php yii sync/process 100
+
+# Uzupełnij slug-i dla starych wierszy bez slug (jednorazowo):
+docker exec store-base php yii catalog/backfill-slugs
+
+# Utwórz konto admina:
+docker exec store-base php yii user/create <username> <email>
+
+# Ponowna autoryzacja Dropshipping API (gdyby refresh_token wygasł / przepadł):
+#   1. Odpal tunel https i ustaw aliexpress.dropshipping.callbackUrl na jego adres:
+#        cloudflared tunnel --url http://localhost:8000
+#   2. Wejdź na admina PRZEZ adres tunelu → Settings → Dropshipping API → Connect.
+#   (AE wymaga https w redirect_uri, dlatego tunel; token potem jest trwały.)

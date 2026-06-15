@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace app\modules\admin\controllers;
 
+use app\components\aliexpress\AliExpressDsClient;
 use app\components\aliexpress\AliExpressStoreScraper;
+use app\controllers\AliexpressController;
 use app\models\Setting;
 use app\models\Store;
 use Throwable;
@@ -47,6 +49,71 @@ final class SettingController extends Controller
             'customCss' => (string)Setting::get('site.custom_css', ''),
             'updatedAt' => Setting::updatedAt('site.custom_css'),
         ]);
+    }
+
+    /** Dropshipping API status + connect screen. */
+    public function actionDs(): string
+    {
+        $client = new AliExpressDsClient();
+
+        return $this->render('ds', [
+            'connected'   => $client->isConnected(),
+            'expiresAt'   => (int)Setting::get(Setting::DS_TOKEN_EXPIRES_AT, '0'),
+            'updatedAt'   => Setting::updatedAt(Setting::DS_ACCESS_TOKEN),
+            'callbackUrl' => $this->dsCallbackUrl(),
+            'callbackConfigured' => trim((string)(Yii::$app->params['aliexpress.dropshipping.callbackUrl'] ?? '')) !== '',
+        ]);
+    }
+
+    /**
+     * Kick off the OAuth flow: mint a CSRF `state`, then bounce the admin to the AliExpress consent
+     * page. AE redirects back to the public {@see \app\controllers\AliexpressController::actionCallback}.
+     */
+    public function actionDsAuthorize(): Response
+    {
+        if (trim((string)(Yii::$app->params['aliexpress.dropshipping.callbackUrl'] ?? '')) === '') {
+            Yii::$app->session->setFlash('warning', 'Set aliexpress.dropshipping.callbackUrl in params-local.php (and register the same URL in the AliExpress console) before authorizing.');
+
+            return $this->redirect(['ds']);
+        }
+
+        $state = Yii::$app->security->generateRandomString(32);
+        Yii::$app->session->set(AliexpressController::STATE_SESSION_KEY, $state);
+
+        return $this->redirect((new AliExpressDsClient())->authorizeUrl($this->dsCallbackUrl(), $state));
+    }
+
+    /** One-click smoke test: refresh the token and pull one real product through the DS API. */
+    public function actionDsTest(): Response
+    {
+        $product = \app\models\Product::find()->orderBy(['id' => SORT_ASC])->one();
+        if ($product === null) {
+            Yii::$app->session->setFlash('warning', 'Import a product first, then test.');
+
+            return $this->redirect(['ds']);
+        }
+
+        try {
+            $detail = (new AliExpressDsClient())->fetch((string)$product->external_id);
+            Yii::$app->session->setFlash('success', sprintf(
+                'OK — DS API returned %d image(s), %d variant(s), %d spec(s) for "%s".',
+                count($detail['images']),
+                count($detail['variants']),
+                count($detail['attributes']),
+                (string)$product->title,
+            ));
+        } catch (Throwable $e) {
+            Yii::$app->session->setFlash('danger', 'DS test failed: ' . $e->getMessage());
+        }
+
+        return $this->redirect(['ds']);
+    }
+
+    private function dsCallbackUrl(): string
+    {
+        $configured = trim((string)(Yii::$app->params['aliexpress.dropshipping.callbackUrl'] ?? ''));
+
+        return $configured !== '' ? $configured : Yii::$app->urlManager->createAbsoluteUrl(['/aliexpress/callback']);
     }
 
     public function actionTest(): Response

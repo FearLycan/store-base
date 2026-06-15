@@ -19,6 +19,7 @@ use yii\db\ActiveRecord;
  * @property string|null $slug
  * @property string|null $description
  * @property string|null $main_image
+ * @property string|null $video_url
  * @property string|null $product_url
  * @property string|null $affiliate_url
  * @property string $currency_code
@@ -78,7 +79,7 @@ class Product extends ActiveRecord
             [['rating_value', 'rating_scale_max'], 'number'],
             [['external_id', 'currency_code', 'availability', 'status', 'source'], 'string', 'max' => 64],
             [['title', 'slug'], 'string', 'max' => 512],
-            [['main_image', 'product_url', 'affiliate_url'], 'string', 'max' => 1024],
+            [['main_image', 'video_url', 'product_url', 'affiliate_url'], 'string', 'max' => 1024],
             [['status'], 'default', 'value' => ProductStatusEnum::ACTIVE->value],
             [['currency_code'], 'default', 'value' => 'USD'],
         ];

@@ -34,7 +34,8 @@ $sections = [
         ['label' => 'Sync queue', 'icon' => 'sync', 'url' => ['/admin/sync-job/index'], 'active' => $ctrl === 'sync-job'],
     ],
     'Settings' => [
-        ['label' => 'Session', 'icon' => 'session', 'url' => ['/admin/setting/index'], 'active' => $ctrl === 'setting' && $action !== 'appearance'],
+        ['label' => 'Session', 'icon' => 'session', 'url' => ['/admin/setting/index'], 'active' => $ctrl === 'setting' && in_array($action, ['index', 'test'], true)],
+        ['label' => 'Dropshipping API', 'icon' => 'sync', 'url' => ['/admin/setting/ds'], 'active' => $ctrl === 'setting' && str_starts_with($action, 'ds')],
         ['label' => 'Appearance', 'icon' => 'appearance', 'url' => ['/admin/setting/appearance'], 'active' => $ctrl === 'setting' && $action === 'appearance'],
     ],
 ];

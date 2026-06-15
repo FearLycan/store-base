@@ -16,14 +16,16 @@ use Yii;
 
 /**
  * Builds/refreshes a full Product aggregate for (Store, externalId): Affiliate API for the
- * reliable core (price, currency, affiliate link, category) plus the product scraper for
- * gallery / variants / attributes. Upserts product + children in a transaction. Idempotent.
+ * reliable core (price, currency, affiliate link, category) plus the Dropshipping API for the
+ * HD gallery / variants / attributes — with the x5sec product scraper as fallback. Upserts
+ * product + children in a transaction. Idempotent.
  */
 final class ProductImporter
 {
     public function __construct(
         private readonly AliExpressApiClient     $apiClient = new AliExpressApiClient(),
         private readonly AliExpressProductScraper $productScraper = new AliExpressProductScraper(),
+        private readonly AliExpressDsClient       $dsClient = new AliExpressDsClient(),
     ) {
     }
 
@@ -31,12 +33,7 @@ final class ProductImporter
     {
         $core = $this->apiClient->fetchProductByItemId($externalId);
 
-        $detail = ['description' => null, 'images' => [], 'variants' => [], 'attributes' => []];
-        try {
-            $detail = $this->productScraper->fetch($externalId);
-        } catch (Throwable $e) {
-            Yii::warning("Product scrape failed for {$externalId}: {$e->getMessage()}", __METHOD__);
-        }
+        $detail = $this->fetchDetail($externalId);
 
         $transaction = Yii::$app->db->beginTransaction();
         try {
@@ -46,8 +43,10 @@ final class ProductImporter
             $product->product_url   = $core['url'] ?? $product->product_url;
             $product->affiliate_url = $core['url'] ?? $product->affiliate_url;
             $product->main_image    = $core['image'] ?? $product->main_image;
+            $product->video_url     = $core['video_url'] ?? $product->video_url;
             $product->currency_code = strtoupper((string)($core['currency_code'] ?? 'USD')) ?: 'USD';
             $product->price         = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
+            $product->original_price = isset($core['original_price_cents']) && is_numeric($core['original_price_cents']) ? (int)$core['original_price_cents'] : $product->original_price;
             $product->availability  = $core['availability'] ?? $product->availability;
             $product->rating_value     = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
             $product->rating_scale_max = isset($core['rating_scale_max']) ? (string)$core['rating_scale_max'] : $product->rating_scale_max;
@@ -62,7 +61,10 @@ final class ProductImporter
                 throw new RuntimeException('Failed to save product: ' . implode('; ', $product->getFirstErrors()));
             }
 
-            $this->syncImages($product, $detail['images'], (string)$product->main_image);
+            // Scraper images are HD and SKU-aware; the API gallery is the fallback when the
+            // risk-controlled PDP call fails (expired x5sec).
+            $galleryImages = $detail['images'] !== [] ? $detail['images'] : (array)($core['images'] ?? []);
+            $this->syncImages($product, $galleryImages, (string)$product->main_image);
             $this->syncVariants($product, $detail['variants'], $product->currency_code);
             $this->syncAttributes($product, $detail['attributes']);
 
@@ -77,12 +79,36 @@ final class ProductImporter
         return $product;
     }
 
+    /**
+     * Detail bundle (description / HD images / variants / attributes) from the Dropshipping API,
+     * falling back to the x5sec scraper when DS is unavailable (not connected / token / API error).
+     *
+     * @return array{description:?string, images:array<int,string>, variants:array<int,array>, attributes:array<int,array{name:string,value:?string}>}
+     */
+    private function fetchDetail(string $externalId): array
+    {
+        try {
+            return $this->dsClient->fetch($externalId);
+        } catch (Throwable $e) {
+            Yii::warning("DS detail failed for {$externalId}: {$e->getMessage()}", __METHOD__);
+        }
+
+        try {
+            return $this->productScraper->fetch($externalId);
+        } catch (Throwable $e) {
+            Yii::warning("Product scrape fallback failed for {$externalId}: {$e->getMessage()}", __METHOD__);
+        }
+
+        return ['description' => null, 'images' => [], 'variants' => [], 'attributes' => []];
+    }
+
     /** Lightweight refresh: only re-pull price/currency/availability/rating from the official API. */
     public function refreshPrice(Product $product): void
     {
         $core = $this->apiClient->fetchProductByItemId($product->external_id);
         $product->currency_code = strtoupper((string)($core['currency_code'] ?? $product->currency_code)) ?: $product->currency_code;
         $product->price = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
+        $product->original_price = isset($core['original_price_cents']) && is_numeric($core['original_price_cents']) ? (int)$core['original_price_cents'] : $product->original_price;
         $product->availability = $core['availability'] ?? $product->availability;
         $product->rating_value = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
         $product->orders_count = isset($core['orders_count']) ? (int)$core['orders_count'] : $product->orders_count;

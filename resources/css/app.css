@@ -104,6 +104,82 @@
   .search-scroll { scrollbar-width: thin; scrollbar-color: rgb(17 24 39 / 0.15) transparent; }
   .search-scroll::-webkit-scrollbar { width: 8px; }
   .search-scroll::-webkit-scrollbar-thumb { border-radius: 4px; background: rgb(17 24 39 / 0.15); }
+
+  /* --- Product page: gallery + variant picker ----------------------- */
+
+  /* Gallery thumbnails */
+  .pdp-thumb {
+    @apply relative h-16 w-16 flex-none overflow-hidden rounded-lg border border-gray-200 bg-white;
+    transition-property: border-color, box-shadow, transform;
+    transition-duration: 140ms;
+  }
+  .pdp-thumb:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .pdp-thumb.is-active {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  /* Image swatch (a colour/finish that carries its own thumbnail) */
+  .variant-swatch {
+    @apply relative flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white px-1 text-center text-[11px] font-medium leading-tight text-gray-600;
+    transition-property: border-color, box-shadow, transform;
+    transition-duration: 140ms;
+  }
+  .variant-swatch img { @apply h-full w-full object-cover; }
+  .variant-swatch:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .variant-swatch:active { transform: scale(0.96); }
+  .variant-swatch.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  /* Selected corner check */
+  .variant-swatch.is-active::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    border-style: solid;
+    border-width: 0 0 18px 18px;
+    border-color: transparent transparent var(--accent) transparent;
+  }
+  .variant-swatch.is-active::before {
+    content: '✓';
+    position: absolute;
+    right: 1px;
+    bottom: -1px;
+    z-index: 1;
+    font-size: 9px;
+    line-height: 1;
+    color: #fff;
+  }
+  .variant-swatch.is-out { opacity: 0.4; }
+  .variant-swatch.is-out::after, .variant-swatch.is-out::before { display: none; }
+
+  /* Text pill (size / dimension with no image) */
+  .variant-pill {
+    @apply inline-flex min-h-[2.25rem] items-center justify-center rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 text-sm text-gray-700;
+    transition-property: border-color, color, background-color, transform;
+    transition-duration: 120ms;
+  }
+  .variant-pill:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .variant-pill:active { transform: scale(0.97); }
+  .variant-pill.is-active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: color-mix(in srgb, var(--accent) 7%, transparent);
+    font-weight: 600;
+  }
+  .variant-pill.is-out {
+    @apply text-gray-300 line-through;
+    background-image: linear-gradient(to top left, transparent calc(50% - 0.5px), rgb(229 231 235) calc(50% - 0.5px), rgb(229 231 235) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  }
+
+  /* Price discount chip */
+  .pdp-discount {
+    @apply inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums;
+    color: var(--accent);
+    background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
 }
 
 @keyframes search-row-in {

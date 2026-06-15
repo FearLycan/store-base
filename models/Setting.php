@@ -18,6 +18,11 @@ class Setting extends ActiveRecord
 {
     public const ALIEXPRESS_COOKIE = 'aliexpress.cookie';
 
+    /** Dropshipping API OAuth tokens (see {@see \app\components\aliexpress\AliExpressDsClient}). */
+    public const DS_ACCESS_TOKEN = 'aliexpress.ds.access_token';
+    public const DS_REFRESH_TOKEN = 'aliexpress.ds.refresh_token';
+    public const DS_TOKEN_EXPIRES_AT = 'aliexpress.ds.token_expires_at';
+
     public static function tableName(): string
     {
         return '{{%setting}}';

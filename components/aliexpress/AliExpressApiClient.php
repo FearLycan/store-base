@@ -210,8 +210,9 @@ final class AliExpressApiClient
         $imageUrl = $this->extractString($product, ['product_main_image_url', 'main_image_url', 'image_url']);
         $currency = strtoupper($this->extractString($product, ['target_sale_price_currency', 'sale_price_currency', 'currency_code', 'currency']) ?? 'USD');
         $priceAmount = $this->extractPriceValue($product);
+        $originalPriceAmount = $this->extractOriginalPriceValue($product);
         $ordersVolume = $this->extractInt($product, ['lastest_volume', 'orders_count']);
-        $ratingValue = $this->extractFloat($product, ['evaluate_rate', 'rating_value']);
+        $ratingValue = $this->extractRating($product);
         $affiliateUrl = $this->generateAffiliateLink($productUrl, $trackingId);
 
         return [
@@ -219,8 +220,11 @@ final class AliExpressApiClient
             'name'             => $title,
             'url'              => $affiliateUrl,
             'image'            => $imageUrl,
+            'images'           => $this->extractGalleryImages($product, $imageUrl),
+            'video_url'        => $this->extractString($product, ['product_video_url']),
             'currency_code'    => $currency !== '' ? $currency : 'USD',
             'price_cents'      => $priceAmount !== null ? (int)round($priceAmount * 100) : null,
+            'original_price_cents' => $originalPriceAmount !== null ? (int)round($originalPriceAmount * 100) : null,
             'availability'     => $this->extractString($product, ['availability', 'stock_status']),
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
@@ -240,7 +244,7 @@ final class AliExpressApiClient
         $currency = strtoupper($this->extractString($product, ['target_sale_price_currency', 'sale_price_currency', 'currency_code', 'currency']) ?? 'USD');
         $priceAmount = $this->extractPriceValue($product);
         $ordersVolume = $this->extractInt($product, ['lastest_volume', 'orders_count']);
-        $ratingValue = $this->extractFloat($product, ['evaluate_rate', 'rating_value']);
+        $ratingValue = $this->extractRating($product);
 
         return [
             'external_id'      => $this->extractString($product, ['product_id', 'item_id', 'productId']),
@@ -331,6 +335,70 @@ final class AliExpressApiClient
                     return $normalized;
                 }
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Gallery from `product_small_image_urls.string[]` — despite the name these are full-size
+     * originals. The main image is forced to position 0 so it stays the cover.
+     *
+     * @return array<int,string>
+     */
+    private function extractGalleryImages(array $source, ?string $mainImage): array
+    {
+        $raw = $source['product_small_image_urls']['string'] ?? $source['product_small_image_urls'] ?? [];
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $urls = $mainImage !== null ? [$mainImage] : [];
+        foreach ($raw as $entry) {
+            if (is_scalar($entry)) {
+                $url = trim((string)$entry);
+                if ($url !== '' && preg_match('~^https?://~i', $url) === 1) {
+                    $urls[] = $url;
+                }
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    /**
+     * `evaluate_rate` is the positive-feedback percentage as a string ("97.0%"); map it onto the
+     * 0–5 scale. A plain numeric `rating_value`/`avg_evaluation_rate` (already 0–5) wins when present.
+     */
+    private function extractRating(array $source): ?float
+    {
+        $direct = $this->extractFloat($source, ['rating_value', 'avg_evaluation_rate', 'evaluate_rate']);
+        if ($direct !== null) {
+            return $direct <= 5.0 ? round($direct, 2) : round($direct / 20, 2);
+        }
+
+        foreach (['evaluate_rate', 'avg_evaluation_rate'] as $key) {
+            $value = $source[$key] ?? null;
+            if (is_string($value) && preg_match('~(\d+(?:\.\d+)?)\s*%~', $value, $m) === 1) {
+                $percent = (float)$m[1];
+                if ($percent > 0) {
+                    return round(min(5.0, $percent / 20), 2);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Only `target_original_price` — the bare `original_price` is in the seller's currency (CNY). */
+    private function extractOriginalPriceValue(array $source): ?float
+    {
+        $value = $source['target_original_price'] ?? null;
+        if (is_numeric($value)) {
+            return (float)$value;
+        }
+        if (is_string($value) && preg_match('~(-?\d+(?:[.,]\d+)?)~', $value, $m) === 1) {
+            return (float)str_replace(',', '.', $m[1]);
         }
 
         return null;
