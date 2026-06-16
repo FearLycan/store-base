@@ -70,8 +70,25 @@ final class CatalogController extends Controller
             ->orderBy(['name' => SORT_ASC])
             ->all();
 
+        // Header cover for the intro hero: admin image wins, else the best-selling
+        // product's photo. Only looked up when there's an intro to sit beside.
+        $cover = '';
+        if (trim((string) $category->intro_html) !== '') {
+            $cover = trim((string) $category->image_url);
+            if ($cover === '') {
+                $best = (clone CatalogQuery::inCategory(CatalogQuery::active(), $category->id))
+                    ->andWhere(['not', ['product.main_image' => null]])
+                    ->andWhere(['<>', 'product.main_image', ''])
+                    ->orderBy(['product.orders_count' => SORT_DESC])
+                    ->select('product.main_image')
+                    ->scalar();
+                $cover = is_string($best) && $best !== '' ? $best : '';
+            }
+        }
+
         return $this->render('category', [
             'category'     => $category,
+            'cover'        => $cover,
             'parent'       => $parent,
             'children'     => $children,
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
