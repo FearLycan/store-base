@@ -12,5 +12,5 @@ Seo::apply($this, $q !== '' ? ('Search: ' . $q) : 'Search', 'Search results', Ur
 ?>
 <h1 class="mb-4 text-2xl font-bold"><?= $q !== '' ? 'Results for “' . Html::encode($q) . '”' : 'Search' ?></h1>
 <?= $this->render('_partials/filters', ['current' => $current, 'categories' => $categories, 'showCategory' => true]) ?>
-<?php if ($dataProvider->getModels() !== []): ?><p class="mb-4 text-sm text-gray-500"><?= $dataProvider->totalCount ?> result(s)</p><?php endif; ?>
+<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount, 'categories' => $categories]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => ($q !== '' ? 'No results for “' . Html::encode($q) . '”.' : 'Type a query to search.')]) ?>

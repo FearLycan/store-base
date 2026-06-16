@@ -31,4 +31,5 @@ $crumbs[] = ['name' => $category->name, 'url' => null];
 <h1 class="mb-4 text-2xl font-bold"><?= Html::encode($category->name) ?></h1>
 <?= $this->render('_partials/subcategories', ['category' => $category, 'parent' => $parent, 'children' => $children]) ?>
 <?= $this->render('_partials/filters', ['current' => $current, 'showCategory' => false]) ?>
+<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products here yet.']) ?>
