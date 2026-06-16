@@ -40,10 +40,10 @@ $cover = $cover ?? '';
 <h1 class="mb-4 text-2xl font-bold"><?= Html::encode($category->name) ?></h1>
 <?php if ($intro !== ''): ?>
 <?php if ($cover !== ''): ?>
-<div class="mb-6 grid items-center gap-6 lg:grid-cols-2">
-    <div class="cat-intro mb-0 max-w-none"><?= HtmlPurifier::process($intro) ?></div>
+<div class="mb-6 grid items-center gap-6 lg:grid-cols-3">
+    <div class="cat-intro mb-0 max-w-none lg:col-span-2"><?= HtmlPurifier::process($intro) ?></div>
     <div class="overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-        <img src="<?= Html::encode($cover) ?>" alt="<?= Html::encode($category->name) ?>" class="aspect-[4/3] w-full object-cover" loading="lazy">
+        <img src="<?= Html::encode($cover) ?>" alt="<?= Html::encode($category->name) ?>" class="h-56 w-full object-cover sm:h-64" loading="lazy">
     </div>
 </div>
 <?php else: ?>
