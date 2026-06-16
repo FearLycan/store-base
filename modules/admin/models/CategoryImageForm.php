@@ -23,7 +23,14 @@ final class CategoryImageForm extends Model
     public const UPLOAD_DIR = '@webroot/uploads/categories';
     public const UPLOAD_URL = '/uploads/categories';
 
-    public ?UploadedFile $file = null;
+    /**
+     * Resolved from $_FILES via UploadedFile::getInstance() in the controller.
+     * Left untyped on purpose: ActiveForm's fileInput() also posts an empty
+     * string for this field name, which load() would otherwise reject.
+     *
+     * @var UploadedFile|null
+     */
+    public $file;
     public ?string $imageUrl = null;
     public bool $remove = false;
 
