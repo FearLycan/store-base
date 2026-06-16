@@ -6,12 +6,19 @@
 
 [x-cloak] { display: none !important; }
 
+@layer base {
+  /* Multi-line headings shouldn't strand a single word on the last line.
+     Shop stylesheet only — never loaded by the Bootstrap admin. */
+  h1, h2 { text-wrap: balance; }
+}
+
 @layer components {
   .btn-accent {
     @apply inline-flex items-center justify-center rounded-lg px-5 py-3 font-semibold text-white shadow-sm transition;
     background-color: var(--accent);
   }
   .btn-accent:hover { filter: brightness(0.92); }
+  .btn-accent:active { transform: scale(0.96); }
 
   /* --- Header: category nav + sub-category dropdowns ----------------- */
   /* Hover/focus dropdowns. The nav strip scrolls horizontally on mobile
