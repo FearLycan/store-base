@@ -36,6 +36,12 @@ final class CatalogController extends Controller
         ]);
     }
 
+    /** Device-local saved products: an SSR shell hydrated by the Alpine store from localStorage. */
+    public function actionSaved(): string
+    {
+        return $this->render('saved');
+    }
+
     public function actionAll(): string
     {
         $filters = Yii::$app->request->queryParams;

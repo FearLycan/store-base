@@ -1,6 +1,7 @@
 User-agent: *
 Disallow: /go/
 Disallow: /search
+Disallow: /saved
 Allow: /
 
 Sitemap: https://example.com/sitemap.xml

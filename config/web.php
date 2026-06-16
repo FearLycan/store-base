@@ -59,6 +59,7 @@ $config = [
                 ''                           => 'catalog/index',
                 'catalog'                    => 'catalog/all',
                 'search'                     => 'catalog/search',
+                'saved'                      => 'catalog/saved',
                 'search/suggest'             => 'catalog/suggest',
                 'product/<id:\d+>/images'    => 'catalog/images',
                 'go/<id:\d+>'                => 'go/index',
