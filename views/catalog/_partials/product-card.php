@@ -173,7 +173,7 @@ $slugJson = Json::encode($product->slug);
         </div>
         <div class="p-3">
             <h3 class="line-clamp-2 min-h-[2.5rem] text-sm text-gray-800"><?= Html::encode($product->displayName) ?></h3>
-            <div class="mt-2"><?= $this->render('price', ['product' => $product]) ?></div>
+            <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1"><?= $this->render('price', ['product' => $product]) ?><?= $this->render('price-drop', ['product' => $product]) ?></div>
             <div class="mt-1"><?= $this->render('stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?></div>
         </div>
     </a>

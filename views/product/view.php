@@ -226,6 +226,13 @@ $cfg = [
         <div class="mt-4"><?= $this->render('//catalog/_partials/price', ['product' => $product]) ?></div>
         <?php endif; ?>
 
+        <?php if (($priceDrop = $product->priceDropAmount()) !== null): ?>
+        <p class="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
+            Price dropped <?= Html::encode($product->currency_code ?: 'USD') ?> <?= Html::encode(number_format($priceDrop / 100, 2)) ?>
+        </p>
+        <?php endif; ?>
+
         <?php if ($product->availability !== null && stripos((string)$product->availability, 'out') !== false): ?>
             <p class="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-sm text-amber-800">Currently unavailable</p>
         <?php endif; ?>
