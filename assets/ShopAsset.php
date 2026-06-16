@@ -12,7 +12,7 @@ final class ShopAsset extends AssetBundle
     public $basePath = '@webroot';
     public $baseUrl = '@web';
     public $css = ['css/app.css'];
-    public $js = ['js/alpine.min.js'];
+    public $js = ['js/shop.js', 'js/alpine.min.js'];
     public $jsOptions = ['defer' => true, 'position' => View::POS_END];
     public $depends = [\yii\web\YiiAsset::class];
 }
