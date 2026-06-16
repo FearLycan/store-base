@@ -258,6 +258,24 @@
   .lb-btn:hover { @apply bg-white/20; }
   .lb-btn:active { @apply bg-white/30; }
 
+  /* --- Catalog: sub-category drill-down chips ----------------------- */
+
+  .subcat-chip {
+    @apply inline-flex items-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700;
+    transition-property: color, border-color, background-color;
+    transition-duration: 120ms;
+  }
+  .subcat-chip:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
+  }
+  .subcat-chip.is-active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+    font-weight: 600;
+  }
+
   /* --- Catalog filter bar ------------------------------------------- */
 
   .filter-bar {
