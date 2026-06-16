@@ -269,13 +269,14 @@ $cfg = [
                 </div>
             <?php endforeach; ?>
         </dl>
-        <?php if (count($product->specs) > 8): ?>
-        <button @click="open = !open" class="flex w-full items-center justify-center gap-1 px-4 py-2.5 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-gray-50">
-            <span x-text="open ? 'Show less' : 'Show all <?= count($product->specs) ?> specifications'"></span>
-            <span class="text-[10px]" x-text="open ? '▲' : '▼'"></span>
-        </button>
-        <?php endif; ?>
     </div>
+    <?php if (count($product->specs) > 8): ?>
+    <button @click="open = !open" class="desc-more">
+        <span x-text="open ? 'Show less' : 'Show all specifications'"></span>
+        <span x-show="!open" x-cloak class="tabular-nums text-gray-400">(<?= count($product->specs) ?>)</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 transition-transform duration-200" :class="{ '-rotate-180': open }"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <?php endif; ?>
 </section>
 <?php endif; ?>
 
@@ -354,19 +355,224 @@ $cfg = [
 <?php endif; ?>
 
 <?php if ($product->reviews): ?>
-<section class="mt-10">
-    <h2 class="mb-3 text-xl font-bold">Reviews</h2>
-    <div class="space-y-4">
-        <?php foreach (array_slice($product->reviews, 0, 20) as $r): ?>
-            <article class="rounded-xl border border-gray-200 bg-white p-4">
-                <div class="flex items-center justify-between">
-                    <span class="font-medium"><?= Html::encode((string)($r->author_name ?: 'Anonymous')) ?><?= $r->reviewer_country ? ' · ' . Html::encode($r->reviewer_country) : '' ?></span>
-                    <?= $this->render('//catalog/_partials/stars', ['value' => $r->rating_value, 'count' => 0]) ?>
-                </div>
-                <?php if ($r->content): ?><p class="mt-2 text-sm text-gray-700"><?= Html::encode((string)$r->content) ?></p><?php endif; ?>
-                <?php if ($r->images): ?><div class="mt-2 flex gap-2"><?php foreach ($r->images as $ri): ?><img src="<?= Html::encode($ri->url) ?>" alt="" loading="lazy" class="h-16 w-16 rounded object-cover"><?php endforeach; ?></div><?php endif; ?>
-            </article>
+<?php
+// --- Reviews --------------------------------------------------------------
+// Render review text server-side (SEO) and let Alpine handle filtering by
+// keyword/photos plus a shared lightbox. "Impressions" are the keyword tallies
+// AliExpress derives from the reviews (stored on product.review_impressions).
+$revs = array_slice($product->reviews, 0, 20);
+$impressions = is_array($product->review_impressions) ? $product->review_impressions : [];
+
+$starRow = static function (float $v, string $cls = 'text-sm'): string {
+    $pct = max(0.0, min(100.0, $v / 5 * 100));
+    return '<span class="relative inline-block whitespace-nowrap leading-none ' . $cls . '" aria-hidden="true">'
+        . '<span class="text-gray-200">★★★★★</span>'
+        . '<span class="absolute inset-0 overflow-hidden text-amber-400" style="width:' . round($pct, 1) . '%">★★★★★</span>'
+        . '</span>';
+};
+
+// 2-letter ISO country code -> flag emoji (regional indicator pair).
+$flagOf = static function (?string $cc): string {
+    if ($cc === null) { return ''; }
+    $cc = strtoupper(trim($cc));
+    if (preg_match('~^[A-Z]{2}$~', $cc) !== 1) { return ''; }
+    return mb_convert_encoding('&#' . (127397 + ord($cc[0])) . ';', 'UTF-8', 'HTML-ENTITIES')
+        . mb_convert_encoding('&#' . (127397 + ord($cc[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+};
+$avatarColors = ['#fb7185', '#f59e0b', '#10b981', '#60a5fa', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'];
+
+$dist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+$photoStrip = [];   // [url, rating] for the top customer-photos strip
+$allImages  = [];   // flat url list backing the lightbox
+$captions   = [];   // per-image caption (author/rating/text of the source review)
+$meta       = [];   // per-card filter metadata for Alpine
+$cards      = [];   // prepared per-review render data
+$photoCount = 0;
+foreach ($revs as $r) {
+    $rating = (float)$r->rating_value;
+    $bucket = (int)round($rating);
+    if ($bucket >= 1 && $bucket <= 5) { $dist[$bucket]++; }
+
+    $name = trim((string)($r->author_name ?: 'Anonymous'));
+    $initial = preg_match('~[\p{L}\p{N}]~u', $name, $m) === 1 ? mb_strtoupper($m[0]) : '?';
+    $content = trim((string)$r->content);
+    $flag = $flagOf($r->reviewer_country);
+    $date = $r->reviewed_at ? Yii::$app->formatter->asDate($r->reviewed_at, 'medium') : '';
+
+    $imgIdx = [];
+    foreach ($r->images as $ri) {
+        $gi = count($allImages);
+        $imgIdx[] = $gi;
+        $photoStrip[] = ['url' => $ri->url, 'rating' => $rating, 'i' => $gi];
+        $allImages[] = $ri->url;
+        $captions[$gi] = ['n' => $name, 'f' => $flag, 'r' => $rating, 'd' => $date, 'c' => $content];
+    }
+    if ($imgIdx !== []) { $photoCount++; }
+
+    $cards[] = [
+        'name'    => $name,
+        'initial' => $initial,
+        'color'   => $avatarColors[abs(crc32($name)) % count($avatarColors)],
+        'flag'    => $flag,
+        'rating'  => $rating,
+        'date'    => $date,
+        'content' => $content,
+        'images'  => $imgIdx,
+    ];
+    $meta[] = ['p' => $imgIdx !== [], 't' => mb_strtolower($content), 'r' => $rating, 'd' => (int)$r->reviewed_at];
+}
+$revTotal = count($cards);
+$initialShown = 6;
+$reviewsCfg = ['images' => $allImages, 'captions' => $captions, 'meta' => $meta, 'initial' => $initialShown];
+?>
+<section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
+    <h2 class="mb-4 text-xl font-bold">Customer reviews</h2>
+
+    <!-- Summary: average + verified note + rating distribution -->
+    <div class="rev-summary">
+        <div class="flex flex-none items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
+            <div class="text-5xl font-bold leading-none tabular-nums text-gray-900"><?= number_format((float)$product->rating_value, 1) ?></div>
+            <div>
+                <?= $starRow((float)$product->rating_value, 'text-lg') ?>
+                <div class="mt-1 text-sm text-gray-500"><?= number_format($revTotal) ?> review<?= $revTotal === 1 ? '' : 's' ?></div>
+            </div>
+        </div>
+        <div class="hidden w-px self-stretch bg-gray-100 sm:block"></div>
+        <div class="min-w-0 flex-1">
+            <?php for ($s = 5; $s >= 1; $s--): $pct = $revTotal ? round($dist[$s] / $revTotal * 100) : 0; ?>
+            <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('star', <?= $s ?>) }"
+                    @click="setFilter('star', <?= $s ?>)"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
+                    aria-label="Show <?= $dist[$s] ?> <?= $s ?>-star review<?= $dist[$s] === 1 ? '' : 's' ?>">
+                <span class="w-3 flex-none text-right tabular-nums text-gray-500"><?= $s ?></span>
+                <span class="text-amber-400">★</span>
+                <span class="rev-bar-track"><span class="rev-bar-fill" style="width:<?= $pct ?>%"></span></span>
+                <span class="w-6 flex-none text-right tabular-nums text-gray-400"><?= $dist[$s] ?></span>
+            </button>
+            <?php endfor; ?>
+            <div class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M20 6 9 17l-5-5"/></svg>
+                All from verified purchases
+            </div>
+        </div>
+    </div>
+
+    <?php if ($photoStrip): ?>
+    <!-- Customer photos -->
+    <div class="mt-6">
+        <div class="mb-2.5 text-sm font-semibold text-gray-900">Photos from reviews <span class="font-normal tabular-nums text-gray-400">(<?= count($photoStrip) ?>)</span></div>
+        <div class="flex gap-2.5 overflow-x-auto pb-1.5">
+            <?php foreach (array_slice($photoStrip, 0, 14) as $k => $ph): ?>
+            <button type="button" @click="open(<?= (int)$ph['i'] ?>)" class="rev-photo" aria-label="Open review photo">
+                <img src="<?= Html::encode($ph['url']) ?>" alt="" loading="lazy">
+                <span class="rev-photo-badge"><span class="text-amber-300">★</span><?= number_format($ph['rating'], 1) ?></span>
+                <?php if ($k === 13 && count($photoStrip) > 14): ?>
+                <span class="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">+<?= count($photoStrip) - 14 ?></span>
+                <?php endif; ?>
+            </button>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($impressions || $photoCount): ?>
+    <!-- Filters: all / with photos / impression keywords -->
+    <div class="mt-6 flex flex-wrap gap-2">
+        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('all') }" @click="setFilter('all')">All</button>
+        <?php if ($photoCount): ?>
+        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('photos') }" @click="setFilter('photos')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+            With photos <span class="rev-chip-num"><?= $photoCount ?></span>
+        </button>
+        <?php endif; ?>
+        <?php foreach ($impressions as $imp): $label = trim((string)($imp['label'] ?? '')); if ($label === '') { continue; } ?>
+        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>) }" @click="setFilter('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>)">
+            <?= Html::encode($label) ?><?php if ((int)($imp['num'] ?? 0) > 0): ?> <span class="rev-chip-num"><?= (int)$imp['num'] ?></span><?php endif; ?>
+        </button>
         <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- Sort + count -->
+    <div class="mt-6 flex items-center justify-between gap-3">
+        <span class="text-sm text-gray-500"><span x-text="ordered.length"></span> review<span x-show="ordered.length !== 1">s</span></span>
+        <select x-model="sort" class="filter-select" aria-label="Sort reviews">
+            <option value="recent">Most recent</option>
+            <option value="high">Highest rating</option>
+            <option value="low">Lowest rating</option>
+        </select>
+    </div>
+
+    <!-- Review list -->
+    <div class="mt-3.5 flex flex-col gap-3.5">
+        <?php foreach ($cards as $i => $c): ?>
+        <article x-show="cardShown(<?= $i ?>)" x-cloak :style="'order:' + orderOf(<?= $i ?>)" class="rev-card">
+            <div class="flex items-start gap-3">
+                <span class="rev-avatar" style="background-color:<?= Html::encode($c['color']) ?>"><?= Html::encode($c['initial']) ?></span>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="truncate font-medium text-gray-900"><?= Html::encode($c['name']) ?></span>
+                        <?php if ($c['flag'] !== ''): ?><span class="text-base leading-none"><?= $c['flag'] ?></span><?php endif; ?>
+                    </div>
+                    <div class="mt-0.5 flex items-center gap-2">
+                        <?= $starRow($c['rating'], 'text-xs') ?>
+                        <?php if ($c['date'] !== ''): ?><span class="text-xs text-gray-400"><?= Html::encode($c['date']) ?></span><?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php if ($c['content'] !== ''): ?>
+            <p class="mt-3 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;"><?= Html::encode($c['content']) ?></p>
+            <?php endif; ?>
+            <?php if ($c['images']): ?>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <?php foreach ($c['images'] as $gi): ?>
+                <button type="button" @click="open(<?= (int)$gi ?>)" class="rev-thumb" aria-label="Open review photo">
+                    <img src="<?= Html::encode($allImages[$gi]) ?>" alt="" loading="lazy">
+                </button>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </article>
+        <?php endforeach; ?>
+        <p x-show="ordered.length === 0" x-cloak class="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
+    </div>
+
+    <button type="button" @click="expanded = true" x-show="!expanded && hiddenCount > 0" x-cloak class="desc-more mt-4">
+        <span>Show more reviews</span>
+        <span class="tabular-nums text-gray-400">(<span x-text="hiddenCount"></span>)</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+
+    <!-- Lightbox -->
+    <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
+         @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
+         x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
+         x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
+        <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <button type="button" @click.stop="prev()" x-show="images.length > 1" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <img :src="images[lbIndex]" alt="" class="max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
+        <button type="button" @click.stop="next()" x-show="images.length > 1" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div x-show="images.length > 1" class="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
+        <!-- Caption: the review the current photo belongs to -->
+        <div x-show="captions[lbIndex] && (captions[lbIndex].c || captions[lbIndex].n)" x-cloak
+             class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-4 pb-5 pt-16">
+            <div class="mx-auto max-w-2xl text-white">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span class="text-sm font-semibold" x-text="captions[lbIndex]?.n"></span>
+                    <span x-show="captions[lbIndex]?.f" class="text-sm leading-none" x-text="captions[lbIndex]?.f"></span>
+                    <span class="inline-flex items-center gap-0.5 text-xs text-amber-400"><span>★</span><span class="tabular-nums" x-text="captions[lbIndex]?.r?.toFixed(1)"></span></span>
+                    <span x-show="captions[lbIndex]?.d" class="text-xs text-white/55" x-text="captions[lbIndex]?.d"></span>
+                </div>
+                <p x-show="captions[lbIndex]?.c" class="mt-1 max-h-24 overflow-y-auto text-sm leading-relaxed text-white/90" x-text="captions[lbIndex]?.c"></p>
+            </div>
+        </div>
     </div>
 </section>
 <?php endif; ?>
@@ -471,6 +677,60 @@ document.addEventListener('alpine:init', () => {
         lbIndex: 0,
 
         get hidden() { return Math.max(0, this.images.length - this.collapsed); },
+        open(i) { this.lbIndex = i; this.lightbox = true; },
+        close() { this.lightbox = false; },
+        next() { this.lbIndex = (this.lbIndex + 1) % this.images.length; },
+        prev() { this.lbIndex = (this.lbIndex - 1 + this.images.length) % this.images.length; },
+    }));
+
+    Alpine.data('productReviews', (cfg) => ({
+        images: cfg.images,
+        captions: cfg.captions,
+        meta: cfg.meta,
+        initial: cfg.initial,
+        filter: { mode: 'all', kw: '' },
+        sort: 'recent',
+        expanded: false,
+        lightbox: false,
+        lbIndex: 0,
+
+        // Clicking the active chip again clears back to "all".
+        setFilter(mode, kw = '') {
+            if (this.filter.mode === mode && this.filter.kw === kw) {
+                this.filter = { mode: 'all', kw: '' };
+            } else {
+                this.filter = { mode, kw };
+            }
+            this.expanded = false;
+        },
+        isActive(mode, kw = '') { return this.filter.mode === mode && this.filter.kw === kw; },
+
+        passes(i) {
+            if (this.filter.mode === 'photos') { return this.meta[i].p; }
+            if (this.filter.mode === 'kw') { return this.meta[i].t.includes(this.filter.kw); }
+            if (this.filter.mode === 'star') { return Math.round(this.meta[i].r) === this.filter.kw; }
+            return true;
+        },
+        get visibleIds() {
+            const out = [];
+            for (let i = 0; i < this.meta.length; i++) { if (this.passes(i)) { out.push(i); } }
+            return out;
+        },
+        // Filtered list re-ordered by the active sort; drives both DOM order and the limit.
+        get ordered() {
+            const m = this.meta;
+            const ids = this.visibleIds;
+            if (this.sort === 'high') { return ids.sort((a, b) => m[b].r - m[a].r || m[b].d - m[a].d); }
+            if (this.sort === 'low') { return ids.sort((a, b) => m[a].r - m[b].r || m[b].d - m[a].d); }
+            return ids.sort((a, b) => m[b].d - m[a].d);
+        },
+        orderOf(i) { return this.ordered.indexOf(i); },
+        cardShown(i) {
+            const pos = this.ordered.indexOf(i);
+            return pos !== -1 && (this.expanded || pos < this.initial);
+        },
+        get hiddenCount() { return Math.max(0, this.ordered.length - this.initial); },
+
         open(i) { this.lbIndex = i; this.lightbox = true; },
         close() { this.lightbox = false; },
         next() { this.lbIndex = (this.lbIndex + 1) % this.images.length; },
