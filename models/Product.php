@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\models;
 
 use app\enums\ProductStatusEnum;
+use Yii;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
@@ -26,6 +27,8 @@ use yii\helpers\Inflector;
  * @property string $currency_code
  * @property int|null $price
  * @property int|null $original_price
+ * @property int|null $previous_price
+ * @property int|null $price_changed_at
  * @property string|null $rating_value
  * @property string|null $rating_scale_max
  * @property int $review_count
@@ -47,6 +50,7 @@ use yii\helpers\Inflector;
  * @property ProductVariant[] $variants
  * @property ProductAttribute[] $specs
  * @property ProductReview[] $reviews
+ * @property ProductPriceHistory[] $priceHistory
  */
 class Product extends ActiveRecord
 {
@@ -68,8 +72,9 @@ class Product extends ActiveRecord
     {
         return [
             [['store_id', 'external_id'], 'required'],
-            [['store_id', 'category_id', 'price', 'original_price', 'review_count', 'orders_count',
-              'first_imported_at', 'last_detail_synced_at', 'last_price_synced_at', 'last_review_synced_at'], 'integer'],
+            [['store_id', 'category_id', 'price', 'original_price', 'previous_price', 'price_changed_at',
+              'review_count', 'orders_count', 'first_imported_at', 'last_detail_synced_at',
+              'last_price_synced_at', 'last_review_synced_at'], 'integer'],
             [['description'], 'string'],
             [['review_impressions'], 'safe'],
             [['rating_value', 'rating_scale_max'], 'number'],
@@ -110,6 +115,32 @@ class Product extends ActiveRecord
     public function getReviews(): ActiveQuery
     {
         return $this->hasMany(ProductReview::class, ['product_id' => 'id'])->orderBy(['reviewed_at' => SORT_DESC]);
+    }
+
+    public function getPriceHistory(): ActiveQuery
+    {
+        return $this->hasMany(ProductPriceHistory::class, ['product_id' => 'id'])->orderBy(['recorded_at' => SORT_ASC]);
+    }
+
+    /**
+     * The recent price drop in cents, or null when there isn't a fresh one. A drop
+     * means the current price is below the previously recorded price and the change
+     * happened within the window (param site.priceDropWindowDays, default 7 days).
+     */
+    public function priceDropAmount(): ?int
+    {
+        if ($this->price === null || $this->previous_price === null || $this->price_changed_at === null) {
+            return null;
+        }
+        if ($this->price >= $this->previous_price) {
+            return null;
+        }
+        $windowDays = (int) (Yii::$app->params['site.priceDropWindowDays'] ?? 7);
+        if ($this->price_changed_at < time() - $windowDays * 86400) {
+            return null;
+        }
+
+        return $this->previous_price - $this->price;
     }
 
     /** Human-friendly name for the storefront; falls back to the raw title until rewritten. */
