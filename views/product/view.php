@@ -252,8 +252,24 @@ $cfg = [
         </div>
         <?php endforeach; ?>
 
-        <a href="<?= $goUrl ?>" target="_blank" rel="nofollow sponsored noopener" class="btn-accent mt-6 w-full">View on AliExpress →</a>
+        <a href="<?= $goUrl ?>" target="_blank" rel="nofollow sponsored noopener" x-ref="buyCta" class="btn-accent mt-6 w-full">View on AliExpress →</a>
         <p class="mt-2 text-xs text-gray-400">Price/availability on AliExpress may differ.<?php if ($product->last_price_synced_at): ?> Updated <?= Yii::$app->formatter->asRelativeTime($product->last_price_synced_at) ?>.<?php endif; ?></p>
+    </div>
+
+    <!-- Sticky mobile buy bar: mirrors the selected-variant price + affiliate CTA.
+         Mobile only (sm:hidden); revealed by `is-on` once the in-page CTA scrolls off. -->
+    <div class="pdp-buybar sm:hidden" :class="{ 'is-on': showBar }" :aria-hidden="!showBar">
+        <div class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4">
+            <div class="min-w-0">
+                <div class="flex items-baseline gap-2">
+                    <span x-show="priceText" class="text-lg font-bold tabular-nums text-gray-900"><span x-text="priceText"></span> <span class="text-xs font-semibold text-gray-500"><?= Html::encode($seedCurrency) ?></span></span>
+                    <span x-show="!priceText" class="text-sm font-semibold text-[color:var(--accent)]">Check price</span>
+                    <span x-show="opriceText" x-cloak class="text-xs text-gray-400 line-through tabular-nums" x-text="opriceText"></span>
+                    <span x-show="discount" x-cloak class="pdp-discount">−<span x-text="discount"></span>%</span>
+                </div>
+            </div>
+            <a href="<?= $goUrl ?>" target="_blank" rel="nofollow sponsored noopener" class="btn-accent flex-none whitespace-nowrap px-4 py-2.5 text-sm">View on AliExpress →</a>
+        </div>
     </div>
 </div>
 
@@ -598,6 +614,15 @@ document.addEventListener('alpine:init', () => {
         selected: Object.assign({}, cfg.selected || {}),
         main: cfg.mainImage || cfg.images[0],
         showVideo: false,
+        showBar: false,
+
+        // Reveal the sticky mobile buy bar once the in-page CTA scrolls out of view.
+        init() {
+            const cta = this.$refs.buyCta;
+            if (!cta || typeof IntersectionObserver === 'undefined') { return; }
+            const io = new IntersectionObserver((entries) => { this.showBar = !entries[0].isIntersecting; });
+            io.observe(cta);
+        },
 
         setMain(src) { this.main = src; this.showVideo = false; },
 

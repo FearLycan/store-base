@@ -260,6 +260,23 @@
     background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
+  /* Sticky mobile buy bar (PDP). Hidden by transform (not display) so `sm:hidden`
+     still removes it on desktop without an inline-style fight; slides up once the
+     in-page CTA scrolls off. Reveal is class-driven (`is-on`) from an
+     IntersectionObserver — never gated by reduce-motion (owner keeps the motion). */
+  .pdp-buybar {
+    @apply fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur;
+    padding-top: 0.625rem;
+    padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -1px 0 rgb(17 24 39 / 0.06), 0 -10px 30px -12px rgb(17 24 39 / 0.22);
+    transform: translateY(110%);
+    opacity: 0;
+    transition-property: transform, opacity;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .pdp-buybar.is-on { transform: none; opacity: 1; }
+
   /* --- Product page: parsed description (highlights + lookbook) ------ */
 
   .desc-highlights {
