@@ -319,6 +319,8 @@ $cfg = [
 </section>
 <?php endif; ?>
 
+<?= $this->render('//catalog/_partials/price-chart', ['product' => $product]) ?>
+
 <?php if ($descHighlights || $descImages): ?>
 <section class="mt-10" x-data="productDesc(<?= Html::encode(Json::encode(['images' => $descImages, 'collapsed' => $descCollapsed])) ?>)">
     <h2 class="mb-4 text-xl font-bold">Product details</h2>
