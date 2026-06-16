@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\modules\admin\controllers;
 
 use app\models\Category;
+use app\modules\admin\models\CategoryContentForm;
 use app\modules\admin\models\CategoryImageForm;
 use Yii;
 use yii\data\ActiveDataProvider;
@@ -40,6 +41,23 @@ final class CategoryController extends Controller
             }
         }
 
-        return $this->render('update', ['category' => $category, 'form' => $form]);
+        $contentForm = new CategoryContentForm();
+        $contentForm->loadFrom($category);
+
+        return $this->render('update', ['category' => $category, 'form' => $form, 'contentForm' => $contentForm]);
+    }
+
+    public function actionContent(int $id): Response|string
+    {
+        $category = Category::findOne($id) ?? throw new NotFoundHttpException('Category not found.');
+        $contentForm = new CategoryContentForm();
+
+        if ($contentForm->load(Yii::$app->request->post()) && $contentForm->apply($category)) {
+            Yii::$app->session->setFlash('success', 'Category content updated.');
+
+            return $this->redirect(['update', 'id' => $id]);
+        }
+
+        return $this->render('update', ['category' => $category, 'form' => new CategoryImageForm(), 'contentForm' => $contentForm]);
     }
 }

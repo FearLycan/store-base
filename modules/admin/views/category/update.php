@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use app\modules\admin\models\CategoryContentForm;
 use yii\bootstrap5\ActiveForm;
 use yii\helpers\Html;
 
 /** @var yii\web\View $this */
 /** @var app\models\Category $category */
 /** @var app\modules\admin\models\CategoryImageForm $form */
+/** @var CategoryContentForm $contentForm */
 
 $this->title = 'Edit image · ' . $category->name;
 $hasImage = (string)$category->image_url !== '';
@@ -62,6 +64,33 @@ $hasImage = (string)$category->image_url !== '';
             <?= Html::a('Cancel', ['index'], ['class' => 'btn btn-link']) ?>
         </div>
 
+        <?php ActiveForm::end(); ?>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header py-2 small text-secondary">Storefront content (intro + FAQ)</div>
+    <div class="card-body">
+        <?php $cf = ActiveForm::begin(['action' => ['content', 'id' => $category->id]]); ?>
+
+        <?= $cf->field($contentForm, 'introHtml')->textarea(['rows' => 5])
+            ->hint('Shown above the product grid. Basic HTML allowed (sanitized on display).') ?>
+
+        <label class="form-label mt-2">FAQ <span class="text-secondary">— leave a row blank to skip it</span></label>
+        <?php for ($i = 0; $i < CategoryContentForm::FAQ_ROWS; $i++): ?>
+            <div class="row g-2 mb-2">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" name="CategoryContentForm[faqQ][]"
+                           value="<?= Html::encode($contentForm->faqQ[$i] ?? '') ?>" placeholder="Question">
+                </div>
+                <div class="col-md-7">
+                    <input type="text" class="form-control" name="CategoryContentForm[faqA][]"
+                           value="<?= Html::encode($contentForm->faqA[$i] ?? '') ?>" placeholder="Answer">
+                </div>
+            </div>
+        <?php endfor; ?>
+
+        <div class="mt-3"><?= Html::submitButton('Save content', ['class' => 'btn btn-primary']) ?></div>
         <?php ActiveForm::end(); ?>
     </div>
 </div>
