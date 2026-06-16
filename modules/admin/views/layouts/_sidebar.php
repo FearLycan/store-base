@@ -11,6 +11,7 @@ $icons = [
     'dashboard' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
     'product' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="m3 8 0 8 9 5 9-5 0-8"/><path d="M12 13v8"/></svg>',
     'import' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+    'category' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5 3 12l8.3 8.3a1.5 1.5 0 0 0 2.1 0l6.4-6.4a1.5 1.5 0 0 0 0-2.1L11.5 3.5H4.5a1.5 1.5 0 0 0-1.5 1.5Z"/><circle cx="7.5" cy="8" r="1"/></svg>',
     'store' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg>',
     'sync' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>',
     'session' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 8.5h.01M15 9h.01M9 15h.01M14.5 14.5h.01M16 12h.01"/></svg>',
@@ -28,6 +29,7 @@ $sections = [
     'Catalog' => [
         ['label' => 'Products', 'icon' => 'product', 'url' => ['/admin/product/index'], 'active' => $ctrl === 'product' && $action !== 'import'],
         ['label' => 'Import products', 'icon' => 'import', 'url' => ['/admin/product/import'], 'active' => $ctrl === 'product' && $action === 'import'],
+        ['label' => 'Categories', 'icon' => 'category', 'url' => ['/admin/category/index'], 'active' => $ctrl === 'category'],
     ],
     'Commerce' => [
         ['label' => 'Stores', 'icon' => 'store', 'url' => ['/admin/store/index'], 'active' => $ctrl === 'store'],

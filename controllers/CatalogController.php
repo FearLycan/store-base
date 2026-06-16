@@ -102,15 +102,23 @@ final class CatalogController extends Controller
             if ($count === 0) {
                 continue;
             }
-            $image = (clone $base)
-                ->andWhere(['not', ['product.main_image' => null]])
-                ->andWhere(['<>', 'product.main_image', ''])
-                ->orderBy(['product.orders_count' => SORT_DESC])
-                ->select('product.main_image')
-                ->scalar();
+            // Admin-set cover wins; otherwise fall back to the best-selling
+            // product's photo (skipping that lookup when a custom image exists).
+            $custom = trim((string) $cat->image_url);
+            if ($custom !== '') {
+                $image = $custom;
+            } else {
+                $best = (clone $base)
+                    ->andWhere(['not', ['product.main_image' => null]])
+                    ->andWhere(['<>', 'product.main_image', ''])
+                    ->orderBy(['product.orders_count' => SORT_DESC])
+                    ->select('product.main_image')
+                    ->scalar();
+                $image = is_string($best) && $best !== '' ? $best : null;
+            }
             $covers[] = [
                 'category' => $cat,
-                'image'    => is_string($image) && $image !== '' ? $image : null,
+                'image'    => $image,
                 'count'    => $count,
             ];
         }

@@ -15,6 +15,7 @@ use yii\db\ActiveRecord;
  * @property int|null $parent_id
  * @property string $name
  * @property string|null $slug
+ * @property string|null $image_url
  * @property int $level
  * @property int $created_at
  * @property int $updated_at
@@ -50,6 +51,7 @@ class Category extends ActiveRecord
             [['parent_id', 'level'], 'integer'],
             [['external_category_id'], 'string', 'max' => 64],
             [['name', 'slug'], 'string', 'max' => 255],
+            [['image_url'], 'string', 'max' => 1024],
         ];
     }
 
