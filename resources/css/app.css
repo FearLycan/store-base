@@ -359,6 +359,25 @@
     font-weight: 600;
   }
 
+  /* --- Catalog: active-filter summary chips (removable) ------------- */
+  .active-chip {
+    @apply inline-flex min-h-[2rem] items-center gap-1.5 rounded-full border border-gray-200 bg-white py-1 pl-3 pr-2 text-sm font-medium text-gray-700;
+    transition-property: color, border-color, background-color;
+    transition-duration: 120ms;
+  }
+  .active-chip:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
+  }
+  .active-chip svg { @apply h-3.5 w-3.5 flex-none text-gray-400; transition: color 120ms ease; }
+  .active-chip:hover svg { color: var(--accent); }
+  .active-chip-clear {
+    @apply inline-flex min-h-[2rem] items-center rounded-full px-3 text-sm font-medium text-gray-500;
+    transition-property: color, background-color;
+    transition-duration: 120ms;
+  }
+  .active-chip-clear:hover { @apply bg-gray-100 text-gray-700; }
+
   /* --- Catalog filter bar ------------------------------------------- */
 
   .filter-bar {
