@@ -13,6 +13,63 @@
   }
   .btn-accent:hover { filter: brightness(0.92); }
 
+  /* --- Header: category nav + sub-category dropdowns ----------------- */
+  /* Hover/focus dropdowns. The nav strip scrolls horizontally on mobile
+     (which would clip a panel), so panels are display:none below md and the
+     strip switches to overflow-visible at md — drill-down on mobile is handled
+     by the on-page sub-category chips instead. */
+
+  .nav-link {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-gray-600;
+    transition: color 140ms ease, background-color 140ms ease;
+  }
+  .nav-item:hover .nav-link,
+  .nav-item:focus-within .nav-link,
+  .nav-link:hover { color: var(--accent); }
+
+  .nav-caret {
+    @apply h-3.5 w-3.5 text-gray-400;
+    transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), color 140ms ease;
+  }
+  .nav-item:hover .nav-caret,
+  .nav-item:focus-within .nav-caret { transform: rotate(180deg); color: var(--accent); }
+
+  .nav-dropdown {
+    @apply absolute left-0 top-full z-40 mt-1.5 hidden min-w-[12rem] rounded-xl border border-gray-200 bg-white p-1.5;
+    box-shadow: 0 0 0 1px rgb(17 24 39 / 0.04), 0 8px 24px -8px rgb(17 24 39 / 0.18), 0 18px 40px -18px rgb(17 24 39 / 0.18);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 150ms ease, transform 150ms cubic-bezier(0.2, 0, 0, 1), visibility 150ms;
+  }
+  @media (min-width: 768px) { .nav-dropdown { display: block; } }
+  /* Invisible bridge across the gap so moving from link to panel never closes it. */
+  .nav-dropdown::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    height: 8px;
+  }
+  .nav-item:hover .nav-dropdown,
+  .nav-item:focus-within .nav-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .nav-dropdown-link {
+    @apply block whitespace-nowrap rounded-lg px-3 py-2 text-sm text-gray-700;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .nav-dropdown-link:hover {
+    color: var(--accent);
+    background-color: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  .nav-dropdown-all { @apply font-semibold text-gray-900; }
+  .nav-dropdown-sep { @apply my-1 border-t border-gray-100; }
+
   /* --- Search modal ------------------------------------------------- */
 
   .search-panel {
