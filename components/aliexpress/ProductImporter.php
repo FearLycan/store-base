@@ -9,6 +9,7 @@ use app\models\Category;
 use app\models\Product;
 use app\models\ProductAttribute;
 use app\models\ProductImage;
+use app\models\ProductPriceHistory;
 use app\models\ProductVariant;
 use app\models\Store;
 use RuntimeException;
@@ -51,8 +52,14 @@ final class ProductImporter
             $product->main_image    = $core['image'] ?? $product->main_image;
             $product->video_url     = $core['video_url'] ?? $product->video_url;
             $product->currency_code = strtoupper((string)($core['currency_code'] ?? 'USD')) ?: 'USD';
+            $oldPrice = $product->price;
             $product->price         = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
             $product->original_price = isset($core['original_price_cents']) && is_numeric($core['original_price_cents']) ? (int)$core['original_price_cents'] : $product->original_price;
+            $priceChanged = $product->price !== null && $product->price !== $oldPrice;
+            if ($priceChanged && $oldPrice !== null) {
+                $product->previous_price = $oldPrice;
+                $product->price_changed_at = time();
+            }
             $product->availability  = $core['availability'] ?? $product->availability;
             $product->rating_value     = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
             $product->rating_scale_max = isset($core['rating_scale_max']) ? (string)$core['rating_scale_max'] : $product->rating_scale_max;
@@ -65,6 +72,10 @@ final class ProductImporter
             $product->last_price_synced_at  = time();
             if (!$product->save()) {
                 throw new RuntimeException('Failed to save product: ' . implode('; ', $product->getFirstErrors()));
+            }
+
+            if ($priceChanged) {
+                ProductPriceHistory::add($product->id, $product->price, $product->original_price, $product->currency_code, time());
             }
 
             // Scraper images are HD and SKU-aware; the API gallery is the fallback when the
@@ -113,13 +124,22 @@ final class ProductImporter
     {
         $core = $this->apiClient->fetchProductByItemId($product->external_id);
         $product->currency_code = strtoupper((string)($core['currency_code'] ?? $product->currency_code)) ?: $product->currency_code;
+        $oldPrice = $product->price;
         $product->price = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
         $product->original_price = isset($core['original_price_cents']) && is_numeric($core['original_price_cents']) ? (int)$core['original_price_cents'] : $product->original_price;
         $product->availability = $core['availability'] ?? $product->availability;
         $product->rating_value = isset($core['rating_value']) ? (string)$core['rating_value'] : $product->rating_value;
         $product->orders_count = isset($core['orders_count']) ? (int)$core['orders_count'] : $product->orders_count;
         $product->last_price_synced_at = time();
+        $priceChanged = $product->price !== null && $product->price !== $oldPrice;
+        if ($priceChanged && $oldPrice !== null) {
+            $product->previous_price = $oldPrice;
+            $product->price_changed_at = time();
+        }
         $product->save(false);
+        if ($priceChanged) {
+            ProductPriceHistory::add($product->id, $product->price, $product->original_price, $product->currency_code, time());
+        }
     }
 
     private function syncImages(Product $product, array $images, string $mainImage): void
