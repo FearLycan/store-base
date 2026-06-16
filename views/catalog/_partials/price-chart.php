@@ -28,7 +28,7 @@ $max     = max($prices);
 $current = end($prices);
 $isLowest = $current <= $min + 0.0001;
 $currency = $product->currency_code ?: 'USD';
-$fmt = static fn (float $v): string => $currency . ' ' . number_format($v, 2);
+$fmt = static fn (float $v): string => number_format($v, 2) . ' ' . $currency;
 
 ChartAsset::register($this);
 $canvasId = 'price-chart-' . (int) $product->id;
@@ -61,11 +61,11 @@ document.addEventListener('DOMContentLoaded', function () {
             interaction: { mode: 'index', intersect: false },
             scales: {
                 x: { type: 'time', time: { unit: 'day', tooltipFormat: 'MMM d, yyyy' }, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
-                y: { beginAtZero: true, grid: { color: 'rgba(17,24,39,0.06)' }, ticks: { callback: function (v) { return cfg.currency + ' ' + v; } } }
+                y: { beginAtZero: true, grid: { color: 'rgba(17,24,39,0.06)' }, ticks: { callback: function (v) { return Number(v).toFixed(2) + ' ' + cfg.currency; } } }
             },
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: function (c) { return cfg.currency + ' ' + c.parsed.y.toFixed(2); } } }
+                tooltip: { callbacks: { label: function (c) { return c.parsed.y.toFixed(2) + ' ' + cfg.currency; } } }
             }
         }
     });
