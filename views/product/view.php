@@ -131,6 +131,16 @@ $seedCurrency = $product->currency_code ?: 'USD';
 $seedDiscount = ($seedPrice && $seedOprice && $seedOprice > $seedPrice) ? (int)round((1 - $seedPrice / $seedOprice) * 100) : null;
 $defaultImage = ($defaultVariant && $defaultVariant->image) ? (string)$defaultVariant->image : $images[0];
 
+$pdpRec = [
+    'slug'     => $product->slug,
+    'url'      => Url::to(['/product/view', 'slug' => $product->slug]),
+    'title'    => $product->displayName,
+    'image'    => $product->main_image ?: ($images[0] ?? '/img/placeholder.png'),
+    'price'    => $product->price !== null ? number_format($product->price / 100, 2) : null,
+    'currency' => $seedCurrency,
+];
+$slugJson = Json::encode($product->slug);
+
 $cfg = [
     'images'   => $images,
     'hasVideo' => (bool)$product->video_url,
@@ -253,6 +263,11 @@ $cfg = [
         <?php endforeach; ?>
 
         <a href="<?= $goUrl ?>" target="_blank" rel="nofollow sponsored noopener" x-ref="buyCta" class="btn-accent mt-6 w-full">View on AliExpress →</a>
+        <button type="button" class="pdp-fav" :class="{ 'is-on': $store.shop.isFav(<?= Html::encode($slugJson) ?>) }"
+                @click="$store.shop.toggleFav(<?= Html::encode(Json::encode($pdpRec)) ?>)" :aria-pressed="$store.shop.isFav(<?= Html::encode($slugJson) ?>)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            <span x-text="$store.shop.isFav(<?= Html::encode($slugJson) ?>) ? 'Saved' : 'Save'">Save</span>
+        </button>
         <p class="mt-2 text-xs text-gray-400">Price/availability on AliExpress may differ.<?php if ($product->last_price_synced_at): ?> Updated <?= Yii::$app->formatter->asRelativeTime($product->last_price_synced_at) ?>.<?php endif; ?></p>
     </div>
 

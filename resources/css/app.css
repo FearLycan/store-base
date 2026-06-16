@@ -120,6 +120,29 @@
     background-color: var(--accent);
   }
 
+  /* --- Favorites heart: card overlay + PDP button ------------------- */
+  .fav-btn {
+    @apply absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-gray-500 shadow-sm backdrop-blur;
+    transition-property: color, background-color, transform;
+    transition-duration: 140ms;
+  }
+  .fav-btn:hover { @apply bg-white text-gray-700; }
+  .fav-btn:active { transform: scale(0.9); }
+  .fav-btn svg { @apply h-[1.15rem] w-[1.15rem]; fill: none; transition: fill 140ms ease; }
+  .fav-btn.is-on { @apply text-[color:var(--accent)]; }
+  .fav-btn.is-on svg { fill: currentColor; }
+
+  .pdp-fav {
+    @apply mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700;
+    transition-property: color, border-color, background-color, transform;
+    transition-duration: 140ms;
+  }
+  .pdp-fav:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+  .pdp-fav:active { transform: scale(0.98); }
+  .pdp-fav svg { @apply h-4 w-4 flex-none; fill: none; transition: fill 140ms ease; }
+  .pdp-fav.is-on { border-color: var(--accent); color: var(--accent); background-color: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .pdp-fav.is-on svg { fill: currentColor; }
+
   .search-label {
     @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400;
   }

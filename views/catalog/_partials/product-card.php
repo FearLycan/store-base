@@ -1,6 +1,7 @@
 <?php
 /** @var app\models\Product $product */
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\View;
 
@@ -153,14 +154,32 @@ $this->registerJs(<<<'JS'
 })();
 JS, View::POS_END, 'card-gallery');
 ?>
-<a href="<?= $href ?>" class="group block overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:shadow-md">
-    <div class="relative aspect-square overflow-hidden bg-gray-100" data-shots data-shots-url="<?= Html::encode($shotsUrl) ?>">
-        <img src="<?= Html::encode($img) ?>" alt="<?= Html::encode($product->displayName) ?>" loading="lazy"
-             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]">
-    </div>
-    <div class="p-3">
-        <h3 class="line-clamp-2 min-h-[2.5rem] text-sm text-gray-800"><?= Html::encode($product->displayName) ?></h3>
-        <div class="mt-2"><?= $this->render('price', ['product' => $product]) ?></div>
-        <div class="mt-1"><?= $this->render('stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?></div>
-    </div>
-</a>
+<?php
+$rec = [
+    'slug'     => $product->slug,
+    'url'      => $href,
+    'title'    => $product->displayName,
+    'image'    => $img,
+    'price'    => $product->price !== null ? number_format($product->price / 100, 2) : null,
+    'currency' => $product->currency_code ?: 'USD',
+];
+$slugJson = Json::encode($product->slug);
+?>
+<div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:shadow-md">
+    <a href="<?= $href ?>" class="block">
+        <div class="relative aspect-square overflow-hidden bg-gray-100" data-shots data-shots-url="<?= Html::encode($shotsUrl) ?>">
+            <img src="<?= Html::encode($img) ?>" alt="<?= Html::encode($product->displayName) ?>" loading="lazy"
+                 class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]">
+        </div>
+        <div class="p-3">
+            <h3 class="line-clamp-2 min-h-[2.5rem] text-sm text-gray-800"><?= Html::encode($product->displayName) ?></h3>
+            <div class="mt-2"><?= $this->render('price', ['product' => $product]) ?></div>
+            <div class="mt-1"><?= $this->render('stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?></div>
+        </div>
+    </a>
+    <button type="button" x-data class="fav-btn" :class="{ 'is-on': $store.shop.isFav(<?= Html::encode($slugJson) ?>) }"
+            @click.prevent.stop="$store.shop.toggleFav(<?= Html::encode(Json::encode($rec)) ?>)"
+            :aria-pressed="$store.shop.isFav(<?= Html::encode($slugJson) ?>)" aria-label="Save product">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+    </button>
+</div>
