@@ -161,6 +161,7 @@ $cfg = [
     $product->category ? ['name' => $product->category->name, 'url' => Url::to(['/catalog/category', 'slug' => $product->category->slug])] : null,
     ['name' => $product->displayName, 'url' => null],
 ]))]) ?>
+<div x-data x-init="$store.shop.pushRecent(<?= Html::encode(Json::encode($pdpRec)) ?>)" hidden></div>
 
 <div class="grid gap-8 lg:grid-cols-2" x-data="productView(<?= Html::encode(Json::encode($cfg)) ?>)">
     <div class="min-w-0">
@@ -616,6 +617,7 @@ $reviewsCfg = ['images' => $allImages, 'captions' => $captions, 'meta' => $meta,
     </div>
 </section>
 <?php endif; ?>
+<?= $this->render('//catalog/_partials/recent-strip', ['excludeSlug' => $product->slug]) ?>
 
 <?php
 $this->registerJs(<<<'JS'

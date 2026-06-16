@@ -59,3 +59,4 @@ $rail = function (string $title, array $products, string $moreUrl) use ($arrow) 
 <?= $this->render('_partials/video-wall', ['videos' => $videos]) ?>
 
 <?php $rail->call($this, 'New arrivals', $newest, Url::to(['/catalog/all', 'sort' => 'newest'])); ?>
+<?= $this->render('_partials/recent-strip') ?>
