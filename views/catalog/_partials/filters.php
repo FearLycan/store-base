@@ -79,7 +79,7 @@ $check = '<svg viewBox="0 0 12 12" class="h-3 w-3" fill="none" stroke="currentCo
 
     <?php if ($hasActive): ?>
     <a href="<?= $resetUrl ?>" class="filter-reset ml-auto" rel="nofollow">
-        <svg viewBox="0 0 14 14" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m3.5 3.5 7 7m0-7-7 7"/></svg>
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6 18 18M18 6 6 18"/></svg>
         Clear
     </a>
     <?php endif; ?>
