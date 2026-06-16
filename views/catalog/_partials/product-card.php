@@ -179,7 +179,7 @@ $slugJson = Json::encode($product->slug);
     </a>
     <button type="button" x-data class="fav-btn" :class="{ 'is-on': $store.shop.isFav(<?= Html::encode($slugJson) ?>) }"
             @click.prevent.stop="$store.shop.toggleFav(<?= Html::encode(Json::encode($rec)) ?>)"
-            :aria-pressed="$store.shop.isFav(<?= Html::encode($slugJson) ?>)" aria-label="Save product">
+            :aria-pressed="$store.shop.isFav(<?= Html::encode($slugJson) ?>)" aria-label="Add to wishlist">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
     </button>
 </div>

@@ -110,14 +110,15 @@
 
   /* --- Header: saved (favorites) link ------------------------------- */
   .hdr-fav {
-    @apply relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg text-gray-600;
+    @apply relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg;
+    color: #ef4444;
     transition: color 140ms ease, background-color 140ms ease;
   }
-  .hdr-fav:hover { @apply bg-gray-100 text-[color:var(--accent)]; }
+  .hdr-fav:hover { @apply bg-gray-100; color: #dc2626; }
   .hdr-fav svg { @apply h-5 w-5; }
   .hdr-fav-badge {
     @apply absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums text-white;
-    background-color: var(--accent);
+    background-color: #ef4444;
   }
 
   /* --- Favorites heart: card overlay + PDP button ------------------- */
@@ -129,7 +130,7 @@
   .fav-btn:hover { @apply bg-white text-gray-700; }
   .fav-btn:active { transform: scale(0.9); }
   .fav-btn svg { @apply h-[1.15rem] w-[1.15rem]; fill: none; transition: fill 140ms ease; }
-  .fav-btn.is-on { @apply text-[color:var(--accent)]; }
+  .fav-btn.is-on { color: #ef4444; }
   .fav-btn.is-on svg { fill: currentColor; }
 
   .pdp-fav {
@@ -137,10 +138,10 @@
     transition-property: color, border-color, background-color, transform;
     transition-duration: 140ms;
   }
-  .pdp-fav:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+  .pdp-fav:hover { border-color: color-mix(in srgb, #ef4444 45%, transparent); color: #ef4444; }
   .pdp-fav:active { transform: scale(0.98); }
   .pdp-fav svg { @apply h-4 w-4 flex-none; fill: none; transition: fill 140ms ease; }
-  .pdp-fav.is-on { border-color: var(--accent); color: var(--accent); background-color: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .pdp-fav.is-on { border-color: #ef4444; color: #ef4444; background-color: color-mix(in srgb, #ef4444 7%, transparent); }
   .pdp-fav.is-on svg { fill: currentColor; }
 
   .search-label {

@@ -39,7 +39,7 @@ $caret = '<svg class="nav-caret" viewBox="0 0 16 16" fill="none" stroke="current
             <kbd class="kbd absolute right-3 top-1/2 hidden -translate-y-1/2 sm:inline-flex" aria-hidden="true">Ctrl K</kbd>
         </form>
         <a href="<?= Url::to(['/catalog/all']) ?>" class="hidden text-sm text-gray-600 hover:text-[color:var(--accent)] sm:block">All products</a>
-        <a href="<?= Url::to(['/catalog/saved']) ?>" x-data class="hdr-fav" aria-label="Saved products">
+        <a href="<?= Url::to(['/catalog/wishlist']) ?>" x-data class="hdr-fav" aria-label="Wishlist">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             <span x-show="$store.shop.favCount > 0" x-cloak class="hdr-fav-badge" x-text="$store.shop.favCount"></span>
         </a>

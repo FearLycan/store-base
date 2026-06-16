@@ -22,10 +22,10 @@ $customCss = (string)(Setting::get('site.custom_css', '') ?? '');
     <style>:root{--accent: <?= Html::encode($accent) ?>;}</style>
     <?php if (trim($customCss) !== ''): ?><style><?= $customCss /* admin-controlled; raw by design */ ?></style><?php endif; ?>
 </head>
-<body class="h-full bg-gray-50 text-gray-900 antialiased">
+<body class="flex min-h-full flex-col bg-gray-50 text-gray-900 antialiased">
 <?php $this->beginBody() ?>
     <?= $this->render('shop-header') ?>
-    <main class="mx-auto w-full max-w-7xl px-4 py-6"><?= $content ?></main>
+    <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6"><?= $content ?></main>
     <?= $this->render('shop-footer') ?>
     <?= $this->render('_search-modal') ?>
 <?php $this->endBody() ?>

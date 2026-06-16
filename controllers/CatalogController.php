@@ -36,10 +36,10 @@ final class CatalogController extends Controller
         ]);
     }
 
-    /** Device-local saved products: an SSR shell hydrated by the Alpine store from localStorage. */
-    public function actionSaved(): string
+    /** Device-local wishlist: an SSR shell hydrated by the Alpine store from localStorage. */
+    public function actionWishlist(): string
     {
-        return $this->render('saved');
+        return $this->render('wishlist');
     }
 
     public function actionAll(): string
