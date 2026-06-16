@@ -153,7 +153,7 @@ $cfg = [
 ]))]) ?>
 
 <div class="grid gap-8 lg:grid-cols-2" x-data="productView(<?= Html::encode(Json::encode($cfg)) ?>)">
-    <div>
+    <div class="min-w-0">
         <div class="group relative aspect-square select-none overflow-hidden rounded-xl border border-gray-200 bg-white">
             <?php if ($product->video_url): ?>
             <video x-show="showVideo" x-cloak controls preload="none" poster="<?= Html::encode($images[0]) ?>" class="h-full w-full object-contain">
@@ -190,7 +190,7 @@ $cfg = [
         <?php endif; ?>
     </div>
 
-    <div>
+    <div class="min-w-0">
         <h1 class="text-2xl font-bold leading-snug"><?= Html::encode($product->displayName) ?></h1>
 
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
