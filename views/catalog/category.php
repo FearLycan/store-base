@@ -34,11 +34,18 @@ $schemaNodes = ListingPageSchemaBuilder::build($dataProvider, $schemaLinks, $hom
 if ($faq !== []) { $schemaNodes[] = FaqSchemaFactory::fromPairs($faq); }
 $intro = trim((string) $category->intro_html);
 $cover = $cover ?? '';
+// The intro hero is landing content: hide it once the user narrows with a filter
+// or pages past the first page, leaving just the results.
+$heroActive = false;
+foreach (['min', 'max', 'rating', 'category', 'sale', 'video', 'q'] as $heroKey) {
+    if (isset($current[$heroKey]) && trim((string) $current[$heroKey]) !== '') { $heroActive = true; break; }
+}
+$showHero = !$heroActive && (int) ($current['page'] ?? 1) <= 1;
 ?>
 <?= JsonLdRenderer::render($schemaNodes) ?>
 <?= $this->render('_partials/breadcrumbs', ['items' => $crumbs]) ?>
 <h1 class="mb-4 text-2xl font-bold"><?= Html::encode($category->name) ?></h1>
-<?php if ($intro !== ''): ?>
+<?php if ($intro !== '' && $showHero): ?>
 <?php if ($cover !== ''): ?>
 <div class="mb-6 grid items-center gap-6 lg:grid-cols-3">
     <div class="cat-intro mb-0 max-w-none lg:col-span-2"><?= HtmlPurifier::process($intro) ?></div>
