@@ -759,6 +759,14 @@
   .cat-intro a { color: var(--accent); @apply underline; }
   .cat-intro strong, .cat-intro b { @apply font-semibold text-gray-800; }
   .cat-intro h2, .cat-intro h3 { @apply mb-2 mt-4 font-bold text-gray-900; }
+
+  /* --- Product: price-history chart range toggle -------------------- */
+  .pc-range-btn {
+    @apply rounded-md px-2.5 py-1 text-gray-500;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .pc-range-btn:hover { @apply text-gray-800; }
+  .pc-range-btn.is-active { @apply bg-white text-gray-900 shadow-sm; }
 }
 
 @keyframes card-ken {
