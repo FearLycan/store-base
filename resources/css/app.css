@@ -108,6 +108,18 @@
     min-width: 1.375rem;
   }
 
+  /* --- Header: saved (favorites) link ------------------------------- */
+  .hdr-fav {
+    @apply relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg text-gray-600;
+    transition: color 140ms ease, background-color 140ms ease;
+  }
+  .hdr-fav:hover { @apply bg-gray-100 text-[color:var(--accent)]; }
+  .hdr-fav svg { @apply h-5 w-5; }
+  .hdr-fav-badge {
+    @apply absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums text-white;
+    background-color: var(--accent);
+  }
+
   .search-label {
     @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400;
   }
