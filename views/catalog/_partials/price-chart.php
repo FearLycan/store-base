@@ -5,15 +5,16 @@ use app\assets\ChartAsset;
 use yii\helpers\Html;
 use yii\helpers\Json;
 
-// Build the price series from recorded history (ascending), then extend it to
+// Recorded history as {t (unix), y (price)}, then a chart series that extends to
 // "now" at the current price so the latest level reaches today. Need >= 2 points.
-$points = [];
+$hist = [];
 foreach ($product->priceHistory as $h) {
     if ($h->price === null) {
         continue;
     }
-    $points[] = ['x' => (int) $h->recorded_at * 1000, 'y' => round($h->price / 100, 2)];
+    $hist[] = ['t' => (int) $h->recorded_at, 'y' => round($h->price / 100, 2)];
 }
+$points = array_map(static fn (array $p): array => ['x' => $p['t'] * 1000, 'y' => $p['y']], $hist);
 if ($product->price !== null) {
     $points[] = ['x' => time() * 1000, 'y' => round($product->price / 100, 2)];
 }
@@ -21,14 +22,26 @@ if (count($points) < 2) {
     return;
 }
 
-// All-time stats (range toggles only change the chart window, not these).
-$prices  = array_column($points, 'y');
-$min     = min($prices);
-$max     = max($prices);
-$current = end($prices);
-$isLowest = $current <= $min + 0.0001;
+// All-time stats with the date each level was recorded (ties → most recent).
+// Range toggles only change the chart window, not these.
+$lowIdx = 0;
+$highIdx = 0;
+foreach ($hist as $i => $p) {
+    if ($p['y'] < $hist[$lowIdx]['y'] || ($p['y'] === $hist[$lowIdx]['y'] && $p['t'] >= $hist[$lowIdx]['t'])) { $lowIdx = $i; }
+    if ($p['y'] > $hist[$highIdx]['y'] || ($p['y'] === $hist[$highIdx]['y'] && $p['t'] >= $hist[$highIdx]['t'])) { $highIdx = $i; }
+}
+$last        = $hist[array_key_last($hist)];
+$min         = $hist[$lowIdx]['y'];
+$minDate     = $hist[$lowIdx]['t'];
+$max         = $hist[$highIdx]['y'];
+$maxDate     = $hist[$highIdx]['t'];
+$current     = $product->price !== null ? round($product->price / 100, 2) : $last['y'];
+$currentDate = $product->price_changed_at ?: $last['t'];
+$isLowest    = $current <= $min + 0.0001;
+
 $currency = $product->currency_code ?: 'USD';
-$fmt = static fn (float $v): string => number_format($v, 2) . ' ' . $currency;
+$fmt  = static fn (float $v): string => number_format($v, 2) . ' ' . $currency;
+$dfmt = static fn (?int $ts): string => $ts ? Yii::$app->formatter->asDate($ts, 'medium') : '';
 
 ChartAsset::register($this);
 $canvasId = 'price-chart-' . (int) $product->id;
@@ -117,14 +130,17 @@ JS, \yii\web\View::POS_END);
             <div class="bg-white px-3 py-3">
                 <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Lowest</p>
                 <p class="mt-0.5 font-bold tabular-nums text-emerald-700"><?= Html::encode($fmt($min)) ?></p>
+                <p class="mt-0.5 text-[11px] tabular-nums text-gray-400"><?= Html::encode($dfmt($minDate)) ?></p>
             </div>
             <div class="bg-white px-3 py-3">
                 <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Highest</p>
                 <p class="mt-0.5 font-bold tabular-nums text-gray-900"><?= Html::encode($fmt($max)) ?></p>
+                <p class="mt-0.5 text-[11px] tabular-nums text-gray-400"><?= Html::encode($dfmt($maxDate)) ?></p>
             </div>
             <div class="bg-white px-3 py-3">
                 <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Current</p>
                 <p class="mt-0.5 font-bold tabular-nums text-gray-900"><?= Html::encode($fmt($current)) ?></p>
+                <p class="mt-0.5 text-[11px] tabular-nums text-gray-400"><?= Html::encode($dfmt($currentDate)) ?></p>
             </div>
         </div>
     </div>
