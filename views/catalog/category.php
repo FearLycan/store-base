@@ -7,8 +7,10 @@
 /** @var array $current */
 use app\components\Seo;
 use app\components\schema\builder\ListingPageSchemaBuilder;
+use app\components\schema\factory\FaqSchemaFactory;
 use app\components\schema\JsonLdRenderer;
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 
 $canonical = Url::to(['/catalog/category', 'slug' => $category->slug], true);
@@ -26,10 +28,20 @@ if ($parent !== null) {
 }
 $crumbs[] = ['name' => $category->name, 'url' => null];
 ?>
-<?= JsonLdRenderer::render(ListingPageSchemaBuilder::build($dataProvider, $schemaLinks, $home, $category->name, $category->name)) ?>
+<?php
+$faq = is_array($category->faq_json) ? $category->faq_json : [];
+$schemaNodes = ListingPageSchemaBuilder::build($dataProvider, $schemaLinks, $home, $category->name, $category->name);
+if ($faq !== []) { $schemaNodes[] = FaqSchemaFactory::fromPairs($faq); }
+$intro = trim((string) $category->intro_html);
+?>
+<?= JsonLdRenderer::render($schemaNodes) ?>
 <?= $this->render('_partials/breadcrumbs', ['items' => $crumbs]) ?>
 <h1 class="mb-4 text-2xl font-bold"><?= Html::encode($category->name) ?></h1>
+<?php if ($intro !== ''): ?>
+<div class="cat-intro"><?= HtmlPurifier::process($intro) ?></div>
+<?php endif; ?>
 <?= $this->render('_partials/subcategories', ['category' => $category, 'parent' => $parent, 'children' => $children]) ?>
 <?= $this->render('_partials/filters', ['current' => $current, 'showCategory' => false]) ?>
 <?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products here yet.']) ?>
+<?= $this->render('_partials/faq', ['faq' => $faq]) ?>
