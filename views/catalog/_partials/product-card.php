@@ -13,6 +13,11 @@ $shotsUrl = Url::to(['/catalog/images', 'id' => $product->id]);
 // them over the poster, with a slow Ken-Burns push and capsule progress pills.
 $this->registerJs(<<<'JS'
 (function () {
+    // Respect OS reduce-motion: the hover slideshow auto-plays a continuous
+    // Ken-Burns push, so skip building/binding it entirely. The poster image
+    // and the gentle user-initiated hover zoom (CSS) are left untouched.
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
+
     var SLIDE_MS = 3000;   // how long each photo is shown (matches the pill fill)
     var INTENT_MS = 130;   // hover dwell before we bother fetching
 
