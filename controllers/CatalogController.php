@@ -31,7 +31,8 @@ final class CatalogController extends Controller
         return $this->render('index', [
             'popular'    => CatalogQuery::rail('popular', 12),
             'newest'     => CatalogQuery::rail('newest', 12),
-            'categories' => self::topCategories(),
+            'videos'     => CatalogQuery::videos(12),
+            'categories' => self::categoryCovers(),
         ]);
     }
 
@@ -81,6 +82,41 @@ final class CatalogController extends Controller
     private static function topCategories(): array
     {
         return Category::find()->where(['level' => 1])->orderBy(['name' => SORT_ASC])->all();
+    }
+
+    /**
+     * Top-level categories for the home page's visual grid, each with a cover
+     * image (its best-selling product's photo) and an active-product count.
+     * Empty categories are dropped and the richest are surfaced first, so the
+     * grid never shows a dead tile. One light count + one scalar lookup per
+     * category — fine for the handful of top-level categories a catalog has.
+     *
+     * @return array<int, array{category: Category, image: string|null, count: int}>
+     */
+    private static function categoryCovers(int $limit = 12): array
+    {
+        $covers = [];
+        foreach (Category::find()->where(['level' => 1])->all() as $cat) {
+            $base  = CatalogQuery::inCategory(CatalogQuery::active(), $cat->id);
+            $count = (int) (clone $base)->count();
+            if ($count === 0) {
+                continue;
+            }
+            $image = (clone $base)
+                ->andWhere(['not', ['product.main_image' => null]])
+                ->andWhere(['<>', 'product.main_image', ''])
+                ->orderBy(['product.orders_count' => SORT_DESC])
+                ->select('product.main_image')
+                ->scalar();
+            $covers[] = [
+                'category' => $cat,
+                'image'    => is_string($image) && $image !== '' ? $image : null,
+                'count'    => $count,
+            ];
+        }
+        usort($covers, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+        return array_slice($covers, 0, $limit);
     }
 
     /** Live-search suggestions for the search modal. Empty query returns "popular now". */

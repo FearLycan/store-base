@@ -403,6 +403,133 @@
   .card-pill.is-on .card-pill-fill {
     animation: card-pill-fill var(--slide, 3000ms) linear forwards;
   }
+
+  /* --- Home: section "View all" link -------------------------------- */
+
+  .rail-more {
+    @apply inline-flex flex-none items-center gap-1 text-sm font-semibold text-gray-500;
+    transition: color 140ms ease;
+  }
+  .rail-more:hover { color: var(--accent); }
+  .rail-more svg { transition: transform 160ms cubic-bezier(0.2, 0, 0, 1); }
+  .rail-more:hover svg { transform: translateX(2px); }
+
+  /* --- Home: "Shop by category" cover tiles ------------------------- */
+  /* Each tile is fronted by its best-selling product's photo (cover), with a
+     bottom scrim carrying the name + product count. No category image column —
+     the cover comes from the catalog, so tiles are never empty. */
+
+  .cat-tile {
+    @apply relative block aspect-[4/5] overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 transition hover:shadow-md;
+  }
+  .cat-tile-img {
+    @apply absolute inset-0 h-full w-full object-cover transition-transform duration-500;
+  }
+  .cat-tile:hover .cat-tile-img { transform: scale(1.04); }
+  /* Fallback when a category has no product imagery — accent-tinted facet. */
+  .cat-tile-fallback {
+    @apply absolute inset-0;
+    background:
+      radial-gradient(125% 100% at 0% 0%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 58%),
+      linear-gradient(160deg, #f3f4f6, #e2e5ea);
+  }
+  .cat-tile-scrim {
+    @apply absolute inset-x-0 bottom-0 h-2/3;
+    background: linear-gradient(to top, rgb(2 6 23 / 0.82), rgb(2 6 23 / 0.16) 55%, transparent);
+  }
+  .cat-tile-body { @apply absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-3.5 sm:p-4; }
+  .cat-tile-name {
+    @apply text-sm font-semibold leading-tight text-white sm:text-base;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  }
+  .cat-tile-count { @apply text-[11px] font-medium tabular-nums text-white/70 sm:text-xs; }
+  .cat-tile-arrow {
+    @apply absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur;
+    opacity: 0;
+    transition: opacity 200ms ease, background-color 200ms ease;
+  }
+  .cat-tile:hover .cat-tile-arrow {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--accent) 85%, transparent);
+  }
+  @media (hover: none) { .cat-tile-arrow { opacity: 0.9; } }
+
+  /* --- Home: "See it in action" video rail + player modal ----------- */
+
+  .video-rail {
+    @apply -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(17 24 39 / 0.18) transparent;
+  }
+  .video-rail::-webkit-scrollbar { height: 8px; }
+  .video-rail::-webkit-scrollbar-thumb { border-radius: 4px; background: rgb(17 24 39 / 0.18); }
+  .video-rail::-webkit-scrollbar-track { background: transparent; }
+
+  .video-card {
+    @apply relative aspect-video w-[17rem] flex-none cursor-pointer snap-start overflow-hidden rounded-2xl border border-gray-200 bg-gray-900 text-left transition hover:shadow-md sm:w-[20rem];
+  }
+  .video-card-img {
+    @apply absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-500;
+  }
+  .video-card:hover .video-card-img { transform: scale(1.04); }
+  .video-card-scrim {
+    @apply absolute inset-0;
+    background: linear-gradient(to top, rgb(2 6 23 / 0.85), rgb(2 6 23 / 0.12) 52%, rgb(2 6 23 / 0.28));
+  }
+  .video-card-play {
+    @apply absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-900;
+    box-shadow: 0 6px 18px -4px rgb(0 0 0 / 0.5);
+    transition: background-color 200ms ease;
+  }
+  .video-card:hover .video-card-play { background-color: #fff; }
+  .video-card-body { @apply absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3.5; }
+  .video-card-title {
+    @apply line-clamp-2 text-sm font-semibold leading-snug text-white;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  }
+  .video-card-price {
+    @apply flex-none rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold tabular-nums text-white backdrop-blur;
+  }
+
+  .vw-panel {
+    @apply overflow-hidden rounded-2xl bg-gray-900;
+    box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+  .vw-stage { @apply relative aspect-video w-full bg-black; }
+  .vw-close {
+    @apply flex h-9 w-9 flex-none items-center justify-center rounded-full bg-white/10 text-white;
+    transition: background-color 140ms ease, transform 140ms ease;
+  }
+  .vw-close:hover { @apply bg-white/20; }
+  .vw-close:active { transform: scale(0.92); }
+  .vw-nav {
+    @apply absolute top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur;
+    transition: background-color 140ms ease, transform 140ms ease;
+  }
+  .vw-nav:hover { @apply bg-black/60; }
+  .vw-nav:active { transform: translateY(-50%) scale(0.92); }
+  .vw-cta {
+    @apply inline-flex flex-none items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white;
+    background-color: var(--accent);
+    transition: filter 140ms ease, transform 140ms ease;
+  }
+  .vw-cta:hover { filter: brightness(0.93); }
+  .vw-cta:active { transform: scale(0.97); }
+  .vw-cta svg { transition: transform 160ms cubic-bezier(0.2, 0, 0, 1); }
+  .vw-cta:hover svg { transform: translateX(2px); }
+
+  .vw-fade-enter { transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1); }
+  .vw-fade-leave { transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1); }
+  .vw-panel-enter {
+    transition-property: opacity, transform;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .vw-panel-leave {
+    transition-property: opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
 }
 
 @keyframes card-ken {
@@ -433,4 +560,5 @@
 @media (prefers-reduced-motion: reduce) {
   .search-row, .search-empty-icon { animation: none; }
   .search-panel-enter, .search-panel-leave, .search-fade-enter, .search-fade-leave { transition-duration: 1ms; }
+  .vw-panel-enter, .vw-panel-leave, .vw-fade-enter, .vw-fade-leave { transition-duration: 1ms; }
 }

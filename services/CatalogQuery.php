@@ -77,6 +77,17 @@ final class CatalogQuery
         return self::applySort(self::active(), $sort)->limit($limit)->all();
     }
 
+    /** @return Product[] Active products carrying a playable video, most-ordered first. */
+    public static function videos(int $limit = 12): array
+    {
+        return self::active()
+            ->andWhere(['not', ['product.video_url' => null]])
+            ->andWhere(['<>', 'product.video_url', ''])
+            ->orderBy(['product.orders_count' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
     /** @return Product[] */
     public static function related(Product $product, int $limit = 8): array
     {
