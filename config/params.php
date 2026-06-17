@@ -22,11 +22,20 @@ $params = [
     'aliexpress.mtop.lang'    => 'en_US',
     'aliexpress.mtop.country' => 'US',
 
+    // --- LLM backend for product-title rewriting: 'ollama' | 'nvidia' ---
+    'llm.provider' => 'ollama',
+
     // --- Ollama Cloud (LLM product-title rewriting) ---
     'ollama.endpoint' => 'https://ollama.com/api/generate',
     'ollama.model'    => 'gpt-oss:120b-cloud',
     'ollama.apiKey'   => '',   // set in params-local.php
     'ollama.timeout'  => 60,
+
+    // --- NVIDIA NIM (OpenAI-compatible chat completions) ---
+    'nvidia.endpoint' => 'https://integrate.api.nvidia.com/v1/chat/completions',
+    'nvidia.model'    => 'nvidia/nemotron-3-super-120b-a12b',
+    'nvidia.apiKey'   => '',   // set in params-local.php
+    'nvidia.timeout'  => 60,
 
     // --- Sync cadence / batching ---
     'sync.discoveryIntervalHours'    => 6,

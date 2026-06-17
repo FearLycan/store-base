@@ -44,9 +44,11 @@ Input: %s
 Output:
 PROMPT;
 
-    public function __construct(
-        private readonly OllamaClient $client = new OllamaClient(),
-    ) {
+    private readonly LlmClient $client;
+
+    public function __construct(?LlmClient $client = null)
+    {
+        $this->client = $client ?? LlmClientFactory::default();
     }
 
     /**

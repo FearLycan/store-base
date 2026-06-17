@@ -12,7 +12,7 @@ use yii\httpclient\Client;
  * Thin client for the Ollama Cloud generate API (https://ollama.com/api/generate).
  * Single-shot, non-streaming completions. Credentials/model come from params.
  */
-final class OllamaClient
+final class OllamaClient implements LlmClient
 {
     private Client $client;
 
