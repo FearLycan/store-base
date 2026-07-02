@@ -126,18 +126,27 @@ final class CatalogController extends Controller
     }
 
     /**
-     * Top-level categories for the home page's visual grid, each with a cover
-     * image (its best-selling product's photo) and an active-product count.
-     * Empty categories are dropped and the richest are surfaced first, so the
-     * grid never shows a dead tile. One light count + one scalar lookup per
-     * category — fine for the handful of top-level categories a catalog has.
+     * Leaf categories for the home page's visual grid — the most specific, shoppable type in each
+     * branch (Earrings, Necklaces… rather than the generic "Jewelry & Accessories"), each with a
+     * cover image (its best-selling product's photo) and an active-product count. Empty categories
+     * are dropped and the richest are surfaced first, so the grid never shows a dead tile.
      *
      * @return array<int, array{category: Category, image: string|null, count: int}>
      */
     private static function categoryCovers(int $limit = 12): array
     {
+        // A leaf is a category no other category points to as parent.
+        $parentIds = array_values(array_filter(
+            Category::find()->select('parent_id')->distinct()->column(),
+            static fn ($id): bool => $id !== null,
+        ));
+        $leaves = Category::find();
+        if ($parentIds !== []) {
+            $leaves->where(['not in', 'id', $parentIds]);
+        }
+
         $covers = [];
-        foreach (Category::find()->where(['level' => 1])->all() as $cat) {
+        foreach ($leaves->all() as $cat) {
             $base  = CatalogQuery::inCategory(CatalogQuery::active(), $cat->id);
             $count = (int) (clone $base)->count();
             if ($count === 0) {
