@@ -58,7 +58,9 @@ final class CatalogController extends Controller
 
     public function actionCategory(string $slug): string
     {
-        $category = Category::findOne(['slug' => $slug]) ?? throw new NotFoundHttpException('Category not found.');
+        // A hidden category (inactive, or under an inactive ancestor) 404s like a missing one.
+        $category = Category::excludeHidden(Category::find()->where(['slug' => $slug]))->one()
+            ?? throw new NotFoundHttpException('Category not found.');
         $filters = Yii::$app->request->queryParams;
         $query = CatalogQuery::applyFilters(CatalogQuery::inCategory(CatalogQuery::active(), $category->id), $filters);
         CatalogQuery::applySort($query, $filters['sort'] ?? 'popular');
@@ -67,14 +69,14 @@ final class CatalogController extends Controller
         // siblings so users can switch within the branch (Earrings ↔ Necklaces). `$branch` is the
         // category the "All" chip points to; `$parent` stays the immediate parent for the breadcrumb.
         $parent      = $category->level > 1 ? $category->parent : null;
-        $ownChildren = Category::find()->where(['parent_id' => $category->id])->orderBy(['name' => SORT_ASC])->all();
+        $ownChildren = Category::excludeHidden(Category::find()->where(['parent_id' => $category->id]))->orderBy(['name' => SORT_ASC])->all();
         if ($ownChildren !== []) {
             $branch   = $category;
             $children = $ownChildren;
         } else {
             $branch   = $parent ?? $category;
             $children = $branch->id !== $category->id
-                ? Category::find()->where(['parent_id' => $branch->id])->orderBy(['name' => SORT_ASC])->all()
+                ? Category::excludeHidden(Category::find()->where(['parent_id' => $branch->id]))->orderBy(['name' => SORT_ASC])->all()
                 : [];
         }
 
@@ -123,7 +125,7 @@ final class CatalogController extends Controller
     /** @return Category[] Top-level categories for the filter bar's category select. */
     private static function topCategories(): array
     {
-        return Category::find()->where(['level' => 1])->orderBy(['name' => SORT_ASC])->all();
+        return Category::excludeHidden(Category::find()->where(['level' => 1]))->orderBy(['name' => SORT_ASC])->all();
     }
 
     /**
@@ -138,9 +140,9 @@ final class CatalogController extends Controller
             Category::find()->select('parent_id')->distinct()->column(),
             static fn ($id): bool => $id !== null,
         ));
-        $query = Category::find()->orderBy(['name' => SORT_ASC]);
+        $query = Category::excludeHidden(Category::find())->orderBy(['name' => SORT_ASC]);
         if ($parentIds !== []) {
-            $query->where(['not in', 'id', $parentIds]);
+            $query->andWhere(['not in', 'id', $parentIds]);
         }
 
         return $query->all();
@@ -220,8 +222,8 @@ final class CatalogController extends Controller
                 'q'          => $q,
                 'mode'       => 'popular',
                 'total'      => 0,
-                'categories' => array_map(self::categoryPayload(...), Category::find()
-                    ->where(['level' => 1])->orderBy(['name' => SORT_ASC])->limit(6)->all()),
+                'categories' => array_map(self::categoryPayload(...), Category::excludeHidden(Category::find()
+                    ->where(['level' => 1]))->orderBy(['name' => SORT_ASC])->limit(6)->all()),
                 'products'   => array_map(self::productPayload(...), CatalogQuery::rail('popular', 6)),
             ];
         }
@@ -229,7 +231,7 @@ final class CatalogController extends Controller
         $query = CatalogQuery::search($q);
         $total = (int) (clone $query)->count();
         $products = CatalogQuery::applySort($query, 'popular')->limit(8)->all();
-        $categories = Category::find()->where(['like', 'name', $q])
+        $categories = Category::excludeHidden(Category::find()->where(['like', 'name', $q]))
             ->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC])->limit(4)->all();
 
         return [
@@ -265,7 +267,7 @@ final class CatalogController extends Controller
 
         $urls = array_values(array_unique(array_filter($urls, static fn($u): bool => $u !== '')));
 
-        return ['images' => array_slice($urls, 0, 6)];
+        return ['images' => array_slice($urls, 1, 6)];
     }
 
     private static function categoryPayload(Category $category): array

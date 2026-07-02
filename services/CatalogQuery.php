@@ -15,7 +15,20 @@ final class CatalogQuery
 
     public static function active(): ActiveQuery
     {
-        return Product::find()->where(['product.status' => 'active']);
+        $query = Product::find()->where(['product.status' => 'active']);
+
+        // Hide products whose category (or any ancestor) is inactive. Products
+        // with no category are unaffected. Covers every storefront listing,
+        // since they all build on this query.
+        $hidden = Category::hiddenIds();
+        if ($hidden !== []) {
+            $query->andWhere(['or',
+                ['product.category_id' => null],
+                ['not in', 'product.category_id', $hidden],
+            ]);
+        }
+
+        return $query;
     }
 
     /** Category subtree: the category plus all descendants (L1 → L2 → item-type L3). */

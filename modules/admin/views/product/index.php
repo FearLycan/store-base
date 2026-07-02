@@ -2,15 +2,43 @@
 
 declare(strict_types=1);
 
+use app\enums\ProductStatusEnum;
 use app\models\Product;
 use yii\grid\GridView;
 use yii\helpers\Html;
+use yii\helpers\Url;
 
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var int|null $storeId */
 
 $this->title = 'Products';
+
+$this->registerJs(<<<'JS'
+document.addEventListener('change', function (e) {
+    var input = e.target;
+    if (!input.classList || !input.classList.contains('js-status-switch')) return;
+
+    var wrap = input.closest('.js-status-toggle');
+    var label = wrap.querySelector('.js-status-label');
+    var headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'};
+    var token = document.querySelector('meta[name=csrf-token]');
+    if (token) headers['X-CSRF-Token'] = token.getAttribute('content');
+
+    input.disabled = true;
+    fetch(wrap.getAttribute('data-url'), {method: 'POST', headers: headers, credentials: 'same-origin'})
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (data) {
+            input.checked = data.active;
+            if (label) {
+                label.textContent = data.label;
+                label.className = 'js-status-label badge ' + data.badgeClass;
+            }
+        })
+        .catch(function () { input.checked = !input.checked; })
+        .finally(function () { input.disabled = false; });
+});
+JS);
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0"><?= Html::encode($this->title) ?></h1>
@@ -46,6 +74,28 @@ $this->title = 'Products';
         [
             'label' => 'Store',
             'value' => static fn (Product $p): string => $p->store->name ?? '—',
+        ],
+        [
+            'label' => 'Status',
+            'format' => 'raw',
+            'value' => static function (Product $p): string {
+                $status = ProductStatusEnum::tryFrom($p->status) ?? ProductStatusEnum::INACTIVE;
+                $isActive = $status === ProductStatusEnum::ACTIVE;
+                $url = Url::to(['toggle-status', 'id' => $p->id]);
+
+                return Html::tag('div', Html::tag('input', '', [
+                        'class' => 'form-check-input js-status-switch',
+                        'type' => 'checkbox',
+                        'role' => 'switch',
+                        'checked' => $isActive,
+                        'aria-label' => 'Toggle product status',
+                    ]) . Html::tag('span', Html::encode($status->label()), [
+                        'class' => 'js-status-label badge ' . $status->badgeClass(),
+                    ]), [
+                        'class' => 'form-check form-switch js-status-toggle d-flex align-items-center gap-2',
+                        'data-url' => $url,
+                    ]);
+            },
         ],
         [
             'class' => yii\grid\ActionColumn::class,

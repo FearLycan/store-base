@@ -89,11 +89,15 @@ class SitemapController extends Controller
 
     private function iterateProductEntries(string $baseUrl): Generator
     {
+        $hidden = Category::hiddenIds();
         $query = Product::find()
             ->select(['id', 'slug', 'updated_at', 'created_at'])
             ->where(['status' => 'active'])
             ->andWhere(['not', ['slug' => null]])->andWhere(['<>', 'slug', ''])
             ->asArray();
+        if ($hidden !== []) {
+            $query->andWhere(['or', ['category_id' => null], ['not in', 'category_id', $hidden]]);
+        }
         foreach ($query->batch(1000) as $rows) {
             foreach ($rows as $row) {
                 yield [
@@ -108,11 +112,12 @@ class SitemapController extends Controller
 
     private function iterateCategoryEntries(string $baseUrl): Generator
     {
-        $rows = Category::find()->alias('c')
+        $query = Category::find()->alias('c')
             ->select(['c.slug', 'c.updated_at', 'c.created_at'])
             ->andWhere(['not', ['c.slug' => null]])->andWhere(['<>', 'c.slug', ''])
-            ->andWhere(['exists', (new Query())->from('{{%product}} p')->where('p.category_id = c.id')->andWhere(['p.status' => 'active'])])
-            ->asArray()->all();
+            ->andWhere(['exists', (new Query())->from('{{%product}} p')->where('p.category_id = c.id')->andWhere(['p.status' => 'active'])]);
+        Category::excludeHidden($query, 'c.id');
+        $rows = $query->asArray()->all();
         foreach ($rows as $row) {
             yield [
                 'loc'        => $this->buildAbsoluteUrl($baseUrl, '/category/' . rawurlencode((string)$row['slug'])),

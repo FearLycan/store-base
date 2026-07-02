@@ -8,14 +8,15 @@ use yii\helpers\Url;
 
 $siteName = (string)(Yii::$app->params['site.name'] ?? 'Store');
 $logo = (string)(Yii::$app->params['site.logo'] ?? '');
-$topCategories = Category::find()->where(['level' => 1])->orderBy(['name' => SORT_ASC])->limit(8)->all();
+// excludeHidden drops inactive categories and any under an inactive ancestor, so the nav mirrors the storefront.
+$topCategories = Category::excludeHidden(Category::find()->where(['level' => 1]))->orderBy(['name' => SORT_ASC])->limit(8)->all();
 
 // Sub-categories for the header dropdowns: L2 grouped under each L1, and the product-type L3
 // (Earrings, Necklaces…) grouped under each L2 — two flat queries, grouped by parent.
 $childrenByParent = [];
 $topIds = array_map(static fn (Category $c): int => $c->id, $topCategories);
 $level2 = $topIds !== []
-    ? Category::find()->where(['parent_id' => $topIds])->orderBy(['name' => SORT_ASC])->all()
+    ? Category::excludeHidden(Category::find()->where(['parent_id' => $topIds]))->orderBy(['name' => SORT_ASC])->all()
     : [];
 foreach ($level2 as $sub) {
     $childrenByParent[$sub->parent_id][] = $sub;
@@ -24,7 +25,7 @@ foreach ($level2 as $sub) {
 $grandByParent = [];
 $level2Ids = array_map(static fn (Category $c): int => $c->id, $level2);
 if ($level2Ids !== []) {
-    foreach (Category::find()->where(['parent_id' => $level2Ids])->orderBy(['name' => SORT_ASC])->all() as $g) {
+    foreach (Category::excludeHidden(Category::find()->where(['parent_id' => $level2Ids]))->orderBy(['name' => SORT_ASC])->all() as $g) {
         $grandByParent[$g->parent_id][] = $g;
     }
 }

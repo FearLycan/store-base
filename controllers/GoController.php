@@ -6,6 +6,7 @@ namespace app\controllers;
 
 use app\models\Product;
 use app\models\ProductClick;
+use app\services\CatalogQuery;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -15,7 +16,8 @@ final class GoController extends Controller
 {
     public function actionIndex(int $id): Response
     {
-        $product = Product::findOne(['id' => $id, 'status' => 'active']);
+        // Excludes products under a hidden (inactive) category, matching the product page.
+        $product = CatalogQuery::active()->andWhere(['product.id' => $id])->one();
         if ($product === null) {
             throw new NotFoundHttpException('Product not found.');
         }

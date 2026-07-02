@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace app\modules\admin\controllers;
 
+use app\enums\CategoryStatusEnum;
 use app\models\Category;
 use app\modules\admin\models\CategoryContentForm;
 use app\modules\admin\models\CategoryImageForm;
 use Yii;
 use yii\data\ActiveDataProvider;
+use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -16,6 +18,16 @@ use yii\web\UploadedFile;
 
 final class CategoryController extends Controller
 {
+    public function behaviors(): array
+    {
+        return [
+            'verbs' => [
+                'class' => VerbFilter::class,
+                'actions' => ['toggle-status' => ['post']],
+            ],
+        ];
+    }
+
     public function actionIndex(): string
     {
         return $this->render('index', [
@@ -45,6 +57,31 @@ final class CategoryController extends Controller
         $contentForm->loadFrom($category);
 
         return $this->render('update', ['category' => $category, 'form' => $form, 'contentForm' => $contentForm]);
+    }
+
+    /**
+     * Flip a category between active and inactive from the list, over AJAX.
+     * Inactive hides the category, its subtree and their products from the
+     * storefront (see Category::hiddenIds + CatalogQuery::active).
+     *
+     * @return array{status: string, label: string, badgeClass: string, active: bool}
+     */
+    public function actionToggleStatus(int $id): array
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $category = Category::findOne($id) ?? throw new NotFoundHttpException('Category not found.');
+        $next = $category->isActive() ? CategoryStatusEnum::INACTIVE : CategoryStatusEnum::ACTIVE;
+
+        $category->status = $next->value;
+        $category->save(false, ['status']);
+
+        return [
+            'status'     => $next->value,
+            'label'      => $next->label(),
+            'badgeClass' => $next->badgeClass(),
+            'active'     => $next === CategoryStatusEnum::ACTIVE,
+        ];
     }
 
     public function actionContent(int $id): Response|string

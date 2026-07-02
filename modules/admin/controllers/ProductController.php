@@ -4,18 +4,33 @@ declare(strict_types=1);
 
 namespace app\modules\admin\controllers;
 
+use app\enums\ProductStatusEnum;
 use app\enums\SyncJobTypeEnum;
 use app\models\Product;
 use app\models\SyncJob;
 use app\modules\admin\models\ImportProductForm;
 use Yii;
 use yii\data\ActiveDataProvider;
+use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 final class ProductController extends Controller
 {
+    public function behaviors(): array
+    {
+        return [
+            'verbs' => [
+                'class' => VerbFilter::class,
+                'actions' => [
+                    'toggle-status' => ['post'],
+                    'refresh'       => ['post'],
+                ],
+            ],
+        ];
+    }
+
     public function actionIndex(?int $store_id = null): string
     {
         $query = Product::find()->with('store')->orderBy(['id' => SORT_DESC]);
@@ -50,6 +65,33 @@ final class ProductController extends Controller
         }
 
         return $this->render('import', ['model' => $model]);
+    }
+
+    /**
+     * Flip a product between active and inactive from the list, over AJAX. Any
+     * non-active status (draft, out_of_stock) becomes active, so this doubles as
+     * a "publish" switch. Inactive products are hidden from the storefront
+     * (CatalogQuery::active filters on status = active).
+     *
+     * @return array{status: string, label: string, badgeClass: string, active: bool}
+     */
+    public function actionToggleStatus(int $id): array
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $product = $this->findProduct($id);
+        $isActive = $product->status === ProductStatusEnum::ACTIVE->value;
+        $next = $isActive ? ProductStatusEnum::INACTIVE : ProductStatusEnum::ACTIVE;
+
+        $product->status = $next->value;
+        $product->save(false, ['status']);
+
+        return [
+            'status'     => $next->value,
+            'label'      => $next->label(),
+            'badgeClass' => $next->badgeClass(),
+            'active'     => $next === ProductStatusEnum::ACTIVE,
+        ];
     }
 
     public function actionRefresh(int $id): Response

@@ -39,6 +39,7 @@ $external = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
     <meta charset="<?= Yii::$app->charset ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
+    <?= Html::csrfMetaTags() ?>
     <?php $this->head() ?>
     <title><?= Html::encode($this->title) ?> · <?= Html::encode(Yii::$app->name) ?> admin</title>
 </head>
