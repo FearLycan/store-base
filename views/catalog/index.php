@@ -41,9 +41,9 @@ $rail = function (string $title, array $products, string $moreUrl) use ($arrow) 
         <h2 class="text-xl font-bold tracking-tight">Shop by category</h2>
         <a href="<?= Url::to(['/catalog/all']) ?>" class="rail-more">All products <?= $arrow ?></a>
     </div>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+    <div class="cat-rail">
         <?php foreach ($categories as $cover): ?>
-            <?= $this->render('_partials/category-tile', ['cover' => $cover]) ?>
+            <?= $this->render('_partials/category-chip', ['cover' => $cover]) ?>
         <?php endforeach; ?>
     </div>
 </section>
