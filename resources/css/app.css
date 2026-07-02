@@ -584,7 +584,14 @@
      name + count beneath. Compact: the whole section is one row tall. */
 
   .cat-rail {
-    @apply -mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-2 sm:gap-6;
+    @apply flex snap-x gap-4 overflow-x-auto px-1.5 pb-2 pt-2 sm:gap-6;
+    /* Centre the row when it fits (desktop); once it overflows the width caps
+       at 100% and it becomes a left-aligned scroller — plain justify-center
+       would make the leftmost chips unreachable. The pt keeps the hover halo
+       (4px outside the circle) from being clipped by the scroll container. */
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
     scrollbar-width: thin;
     scrollbar-color: rgb(17 24 39 / 0.18) transparent;
   }
