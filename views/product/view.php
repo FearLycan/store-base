@@ -27,10 +27,16 @@ $descHighlights = $desc['highlights'];
 $descCollapsed = count($descImages) <= 9 ? count($descImages) : 6;
 
 $goUrl = Url::to(['/go/index', 'id' => $product->id]);
-$crumbLinks = [];
-if ($product->category !== null) {
-    $crumbLinks[] = ['label' => $product->category->name, 'url' => Url::to(['/catalog/category', 'slug' => $product->category->slug])];
+// Full category chain (L1 > L2 > L3), not just the leaf, for the breadcrumb + JSON-LD.
+$categoryTrail = [];
+for ($c = $product->category; $c !== null; $c = $c->parent) {
+    $categoryTrail[] = $c;
 }
+$categoryTrail = array_reverse($categoryTrail);
+$crumbLinks = array_map(
+    static fn ($c): array => ['label' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
+    $categoryTrail,
+);
 
 // --- Variant selector data ------------------------------------------------
 // Group SKU variants by their option dimensions (e.g. "Metal Color", size). A
@@ -156,11 +162,14 @@ $cfg = [
 ?>
 <?= JsonLdRenderer::render(ProductPageSchemaBuilder::build($product, $canonical, $goUrl, $crumbLinks, ['label' => 'Home', 'url' => Url::to(['/catalog/index'])])) ?>
 
-<?= $this->render('//catalog/_partials/breadcrumbs', ['items' => array_values(array_filter([
-    ['name' => 'Home', 'url' => Url::to(['/catalog/index'])],
-    $product->category ? ['name' => $product->category->name, 'url' => Url::to(['/catalog/category', 'slug' => $product->category->slug])] : null,
-    ['name' => $product->displayName, 'url' => null],
-]))]) ?>
+<?= $this->render('//catalog/_partials/breadcrumbs', ['items' => array_merge(
+    [['name' => 'Home', 'url' => Url::to(['/catalog/index'])]],
+    array_map(
+        static fn ($c): array => ['name' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
+        $categoryTrail,
+    ),
+    [['name' => $product->displayName, 'url' => null]],
+)]) ?>
 <div x-data x-init="$store.shop.pushRecent(<?= Html::encode(Json::encode($pdpRec)) ?>)" hidden></div>
 
 <div class="grid gap-8 lg:grid-cols-2" x-data="productView(<?= Html::encode(Json::encode($cfg)) ?>)">
