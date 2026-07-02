@@ -2,6 +2,7 @@
 /** @var yii\web\View $this */
 /** @var app\models\Category $category */
 /** @var app\models\Category|null $parent */
+/** @var app\models\Category $branch */
 /** @var app\models\Category[] $children */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array $current */
@@ -17,14 +18,21 @@ $canonical = Url::to(['/catalog/category', 'slug' => $category->slug], true);
 Seo::apply($this, $category->name, 'Browse ' . $category->name . ' products.', $canonical);
 $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
 
-// Breadcrumb trail: Home > [parent] > current. `$schemaLinks` are the
-// intermediate links for the JSON-LD breadcrumb; `$crumbs` feed the visible one.
+// Breadcrumb trail: Home > [ancestors…] > current — the full chain (L1 > L2 > L3), not just the
+// immediate parent. `$schemaLinks` are the intermediate links for the JSON-LD breadcrumb; `$crumbs`
+// feed the visible one.
+$ancestors = [];
+for ($a = $category->parent; $a !== null; $a = $a->parent) {
+    $ancestors[] = $a;
+}
+$ancestors = array_reverse($ancestors);
+
 $schemaLinks = [];
 $crumbs = [['name' => 'Home', 'url' => Url::to(['/catalog/index'])]];
-if ($parent !== null) {
-    $parentUrl = Url::to(['/catalog/category', 'slug' => $parent->slug]);
-    $schemaLinks[] = ['label' => $parent->name, 'url' => $parentUrl];
-    $crumbs[] = ['name' => $parent->name, 'url' => $parentUrl];
+foreach ($ancestors as $ancestor) {
+    $ancestorUrl = Url::to(['/catalog/category', 'slug' => $ancestor->slug]);
+    $schemaLinks[] = ['label' => $ancestor->name, 'url' => $ancestorUrl];
+    $crumbs[] = ['name' => $ancestor->name, 'url' => $ancestorUrl];
 }
 $crumbs[] = ['name' => $category->name, 'url' => null];
 ?>
@@ -57,7 +65,7 @@ $showHero = !$heroActive && (int) ($current['page'] ?? 1) <= 1;
 <div class="cat-intro"><?= HtmlPurifier::process($intro) ?></div>
 <?php endif; ?>
 <?php endif; ?>
-<?= $this->render('_partials/subcategories', ['category' => $category, 'parent' => $parent, 'children' => $children]) ?>
+<?= $this->render('_partials/subcategories', ['category' => $category, 'branch' => $branch, 'children' => $children]) ?>
 <?= $this->render('_partials/filters', ['current' => $current, 'showCategory' => false]) ?>
 <?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products here yet.']) ?>

@@ -62,13 +62,20 @@ final class CatalogController extends Controller
         $query = CatalogQuery::applyFilters(CatalogQuery::inCategory(CatalogQuery::active(), $category->id), $filters);
         CatalogQuery::applySort($query, $filters['sort'] ?? 'popular');
 
-        // Drill-down nav: a top-level category lists its own children; a sub-category
-        // lists its siblings (the parent's children) so users can switch within the branch.
-        $parent   = $category->level > 1 ? $category->parent : null;
-        $children = Category::find()
-            ->where(['parent_id' => $parent?->id ?? $category->id])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+        // Drill-down chips: a category with children lists them (L1→L2, L2→L3); a leaf lists its
+        // siblings so users can switch within the branch (Earrings ↔ Necklaces). `$branch` is the
+        // category the "All" chip points to; `$parent` stays the immediate parent for the breadcrumb.
+        $parent      = $category->level > 1 ? $category->parent : null;
+        $ownChildren = Category::find()->where(['parent_id' => $category->id])->orderBy(['name' => SORT_ASC])->all();
+        if ($ownChildren !== []) {
+            $branch   = $category;
+            $children = $ownChildren;
+        } else {
+            $branch   = $parent ?? $category;
+            $children = $branch->id !== $category->id
+                ? Category::find()->where(['parent_id' => $branch->id])->orderBy(['name' => SORT_ASC])->all()
+                : [];
+        }
 
         // Header cover for the intro hero: admin image wins, else the best-selling
         // product's photo. Only looked up when there's an intro to sit beside.
@@ -90,6 +97,7 @@ final class CatalogController extends Controller
             'category'     => $category,
             'cover'        => $cover,
             'parent'       => $parent,
+            'branch'       => $branch,
             'children'     => $children,
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'      => $filters,

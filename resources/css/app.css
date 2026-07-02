@@ -83,6 +83,9 @@
   }
   .nav-dropdown-all { @apply font-semibold text-gray-900; }
   .nav-dropdown-sep { @apply my-1 border-t border-gray-100; }
+  /* L2 that heads a group of product-type L3 links: a quiet label above its children. */
+  .nav-dropdown-group { @apply font-semibold text-gray-900; }
+  .nav-dropdown-child { @apply pl-6 text-gray-600; }
 
   /* --- Search modal ------------------------------------------------- */
 
