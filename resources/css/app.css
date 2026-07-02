@@ -635,7 +635,7 @@
      pointer-events. Sits under the sticky header (z-30) and search modal. */
 
   .back-to-top {
-    @apply fixed bottom-5 right-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md;
+    @apply fixed bottom-10 right-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md;
     opacity: 0;
     transform: translateY(8px);
     pointer-events: none;
