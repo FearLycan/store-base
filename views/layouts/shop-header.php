@@ -24,9 +24,17 @@ $caret = '<svg class="nav-caret" viewBox="0 0 16 16" fill="none" stroke="current
 ?>
 <header class="sticky top-0 z-30 border-b border-gray-200 bg-white">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <a href="<?= Url::to(['/catalog/index']) ?>" class="flex items-center gap-2 text-lg font-bold">
-            <?php if ($logo !== ''): ?><img src="<?= Html::encode($logo) ?>" alt="" class="h-8"><?php endif; ?>
-            <span><?= Html::encode($siteName) ?></span>
+        <a href="<?= Url::to(['/catalog/index']) ?>" class="flex flex-none items-center gap-2.5" aria-label="<?= Html::encode($siteName) ?> home">
+            <?php if ($logo !== ''): ?>
+                <img src="<?= Html::encode($logo) ?>" alt="" class="h-8">
+                <span class="text-lg font-bold"><?= Html::encode($siteName) ?></span>
+            <?php else: ?>
+                <?= $this->render('_brand-logo', ['iconSize' => 36, 'wordmarkHeight' => 0]) ?>
+                <span class="flex flex-col justify-center">
+                    <span class="text-[10px] font-semibold leading-none tracking-[0.18em] text-gray-400">snag<span class="text-[color:var(--accent)]">loft</span></span>
+                    <span class="mt-1 text-lg font-bold leading-none tracking-tight text-gray-900"><?= Html::encode($siteName) ?></span>
+                </span>
+            <?php endif; ?>
         </a>
         <form action="<?= Url::to(['/catalog/search']) ?>" method="get" class="relative flex-1" x-data>
             <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">

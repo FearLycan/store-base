@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --accent: #2563eb; } /* overridden at runtime via params */
+/* Brand tokens (snagloft pack) — overridden at runtime via params in shop.php. */
+:root {
+  --accent: #E0592E;      /* store accent; per-niche via brand.palette */
+  --brand-ink: #1F1E1C;   /* snagloft ink */
+  --brand-cream: #F4EFE6; /* snagloft cream */
+}
 
 [x-cloak] { display: none !important; }
 

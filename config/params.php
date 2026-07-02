@@ -50,10 +50,28 @@ $params = [
 
     // --- Branding (per deployment; override in params-local) ---
     'site.baseUrl'      => 'https://example.com', // override in params-local
-    'site.logo'         => '',
-    'site.accentColor'  => '#2563eb',
+    'site.logo'         => '',                    // custom logo image; empty = snagloft brand logo
+    'site.accentColor'  => '',                    // empty = resolved from brand.palette by site.niche
     'site.tagline'      => 'Curated finds, updated daily.',
     'site.footer'       => '',
+
+    // --- snagloft brand (shared across every deployment; hub = snagloft.com) ---
+    'brand.name'   => 'snagloft',
+    'brand.hubUrl' => 'https://snagloft.com',
+    'brand.slogan' => 'A loft full of the good stuff. Sorted, not dumped.',
+    'brand.ink'    => '#1F1E1C',
+    'brand.cream'  => '#F4EFE6',
+    // Per-niche accent, mirroring the hub palette (snagloft.com/files/snagloft.css).
+    'brand.palette' => [
+        'jewelry'     => '#E0592E', // coral
+        'watches'     => '#12876A', // teal
+        'glasses'     => '#12876A', // teal
+        'shoes'       => '#BA7517', // amber
+        'electronics' => '#185FA5', // blue
+        'lego'        => '#C8322B', // brick red
+        'games'       => '#6D45C9', // violet
+    ],
+    'brand.defaultAccent' => '#E0592E', // hub coral
 ];
 
 // Local overrides (not committed to the repo). See params-local.php.example.
