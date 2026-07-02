@@ -56,6 +56,12 @@ Progi cadence (config/params.php):
 
 # --- UTRZYMANIE -----------------------------------------------------------
 
+# Token Dropshipping API: proaktywne odświeżenie co 6h, niezależnie od importów.
+# Klient odświeża access_token sam przy imporcie, ale to działa tylko gdy worker
+# faktycznie coś importuje — przy dłuższym przestoju refresh_token mógłby wygasnąć
+# i wymusić ręczny OAuth. Ten wpis trzyma łańcuch żywy nawet na bezczynnym sklepie.
+0 */6 * * *    cd /var/www/store-base && php yii ds/refresh-token >> runtime/logs/sync.log 2>&1
+
 # Sitemap: regeneruje gzipowaną mapę strony. Raz na dobę (04:00), po syncach.
 0 4 * * *      cd /var/www/store-base && php yii sitemap/generate >> runtime/logs/sitemap.log 2>&1
 
@@ -70,6 +76,7 @@ te same komendy przez kontener, np.:
   docker exec store-base php yii store/discover
   docker exec store-base php yii product/refresh-prices
   docker exec store-base php yii review/sync
+  docker exec store-base php yii ds/refresh-token
   docker exec store-base php yii sitemap/generate
 
 Do szybkiego testu możesz po prostu odpalać `sync/process` ręcznie w pętli.

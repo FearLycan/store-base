@@ -18,11 +18,20 @@ final class CatalogQuery
         return Product::find()->where(['product.status' => 'active']);
     }
 
-    /** Category subtree: the category plus its direct children (2-level hierarchy). */
+    /** Category subtree: the category plus all descendants (L1 → L2 → item-type L3). */
     public static function inCategory(ActiveQuery $query, int $categoryId): ActiveQuery
     {
-        $ids = Category::find()->select('id')->where(['parent_id' => $categoryId])->column();
-        $ids[] = $categoryId;
+        $ids = [$categoryId];
+        $frontier = [$categoryId];
+        while ($frontier !== []) {
+            $children = Category::find()->select('id')->where(['parent_id' => $frontier])->column();
+            $children = array_values(array_diff(array_map('intval', $children), $ids));
+            if ($children === []) {
+                break;
+            }
+            $ids = array_merge($ids, $children);
+            $frontier = $children;
+        }
         return $query->andWhere(['product.category_id' => $ids]);
     }
 

@@ -45,7 +45,14 @@ final class ProductImporter
             if ($product->isNewRecord) {
                 $product->status = ProductStatusEnum::DRAFT->value;
             }
-            $product->category_id   = Category::resolveLeafFromApi($core) ?? $product->category_id;
+            // Affiliate API only reaches L2 ("Fashion Jewelry"); the DS "Item Type" attribute carries
+            // the real product type ("Earrings", "Rings"), so hang it as a level-3 child. Fall back to
+            // the affiliate leaf when the attribute is absent (some niches, e.g. phone cases, omit it).
+            $affiliateLeafId = Category::resolveLeafFromApi($core);
+            $itemType = $this->extractItemType($detail['attributes']);
+            $product->category_id = Category::resolveItemTypeChild($affiliateLeafId, $itemType)
+                ?? $affiliateLeafId
+                ?? $product->category_id;
             $product->title         = $core['name'] ?? $product->title;
             $product->product_url   = $core['url'] ?? $product->product_url;
             $product->affiliate_url = $core['url'] ?? $product->affiliate_url;
@@ -140,6 +147,25 @@ final class ProductImporter
         if ($priceChanged) {
             ProductPriceHistory::add($product->id, $product->price, $product->original_price, $product->currency_code, time());
         }
+    }
+
+    /**
+     * The DS "Item Type" property value (e.g. "Earrings"), or null when the product doesn't carry one.
+     *
+     * @param array<int,array{name:string,value:?string}> $attributes
+     */
+    private function extractItemType(array $attributes): ?string
+    {
+        foreach ($attributes as $a) {
+            if (strtolower(trim((string)($a['name'] ?? ''))) === 'item type') {
+                $value = trim((string)($a['value'] ?? ''));
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function syncImages(Product $product, array $images, string $mainImage): void

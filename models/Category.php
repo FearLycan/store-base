@@ -104,4 +104,36 @@ class Category extends ActiveRecord
 
         return $parentId;
     }
+
+    /**
+     * Upsert a product-type leaf derived from the DS "Item Type" attribute (e.g. "Earrings", "Rings")
+     * as a child of the affiliate-resolved category, returning its id. All products of the same type
+     * fold into one node via a synthetic `itype:<slug>` external id, so re-imports and other stores
+     * reuse it. Returns null when the type is blank — callers fall back to the affiliate leaf.
+     */
+    public static function resolveItemTypeChild(?int $parentId, ?string $itemType): ?int
+    {
+        $name = self::normalizeTypeName((string)$itemType);
+        if ($name === '') {
+            return null;
+        }
+
+        $parent = $parentId !== null ? self::findOne($parentId) : null;
+        $level = ($parent->level ?? 0) + 1;
+
+        return self::upsert('itype:' . self::slugifyType($name), $name, $level, $parent->id ?? null)->id;
+    }
+
+    /** Trim, collapse whitespace, Title Case — so "hoop earrings"/"EARRINGS" normalise to one label. */
+    private static function normalizeTypeName(string $raw): string
+    {
+        $clean = trim((string)preg_replace('/\s+/', ' ', $raw));
+
+        return $clean === '' ? '' : mb_convert_case($clean, MB_CASE_TITLE, 'UTF-8');
+    }
+
+    private static function slugifyType(string $name): string
+    {
+        return trim((string)preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($name, 'UTF-8')), '-');
+    }
 }
