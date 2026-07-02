@@ -52,6 +52,7 @@ final class CatalogController extends Controller
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'      => $filters,
             'categories'   => self::topCategories(),
+            'chips'        => self::shoppableLeafCategories(),
         ]);
     }
 
@@ -126,6 +127,47 @@ final class CatalogController extends Controller
     }
 
     /**
+     * Leaf categories — the most specific type in each branch (a category no other category
+     * points to as parent), ordered by name.
+     *
+     * @return Category[]
+     */
+    private static function leafCategories(): array
+    {
+        $parentIds = array_values(array_filter(
+            Category::find()->select('parent_id')->distinct()->column(),
+            static fn ($id): bool => $id !== null,
+        ));
+        $query = Category::find()->orderBy(['name' => SORT_ASC]);
+        if ($parentIds !== []) {
+            $query->where(['not in', 'id', $parentIds]);
+        }
+
+        return $query->all();
+    }
+
+    /**
+     * Leaf categories that actually hold active products — for the catalog page's chip nav,
+     * so no chip leads to an empty listing. One grouped count query.
+     *
+     * @return Category[]
+     */
+    private static function shoppableLeafCategories(): array
+    {
+        $counts = CatalogQuery::active()
+            ->select(['category_id'])
+            ->andWhere(['not', ['category_id' => null]])
+            ->groupBy('category_id')
+            ->column();
+        $withProducts = array_flip(array_map('intval', $counts));
+
+        return array_values(array_filter(
+            self::leafCategories(),
+            static fn (Category $c): bool => isset($withProducts[$c->id]),
+        ));
+    }
+
+    /**
      * Leaf categories for the home page's visual grid — the most specific, shoppable type in each
      * branch (Earrings, Necklaces… rather than the generic "Jewelry & Accessories"), each with a
      * cover image (its best-selling product's photo) and an active-product count. Empty categories
@@ -135,18 +177,8 @@ final class CatalogController extends Controller
      */
     private static function categoryCovers(int $limit = 12): array
     {
-        // A leaf is a category no other category points to as parent.
-        $parentIds = array_values(array_filter(
-            Category::find()->select('parent_id')->distinct()->column(),
-            static fn ($id): bool => $id !== null,
-        ));
-        $leaves = Category::find();
-        if ($parentIds !== []) {
-            $leaves->where(['not in', 'id', $parentIds]);
-        }
-
         $covers = [];
-        foreach ($leaves->all() as $cat) {
+        foreach (self::leafCategories() as $cat) {
             $base  = CatalogQuery::inCategory(CatalogQuery::active(), $cat->id);
             $count = (int) (clone $base)->count();
             if ($count === 0) {
