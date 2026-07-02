@@ -630,6 +630,28 @@
   .cat-chip:hover .cat-chip-name { color: var(--accent); }
   .cat-chip-count { @apply -mt-1 text-[11px] tabular-nums text-gray-400; }
 
+  /* --- Floating "back to top" button --------------------------------- */
+  /* Always in the DOM (so the fade-out plays); hidden state is inert via
+     pointer-events. Sits under the sticky header (z-30) and search modal. */
+
+  .back-to-top {
+    @apply fixed bottom-5 right-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease, color 140ms ease, border-color 140ms ease;
+  }
+  .back-to-top.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .back-to-top:hover {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .back-to-top:active { transform: scale(0.94); }
+
   /* --- Home: "See it in action" video rail + player modal ----------- */
 
   .video-rail {

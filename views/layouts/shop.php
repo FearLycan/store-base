@@ -45,6 +45,7 @@ $faviconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
     <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6"><?= $content ?></main>
     <?= $this->render('shop-footer') ?>
     <?= $this->render('_search-modal') ?>
+    <?= $this->render('_back-to-top') ?>
 <?php $this->endBody() ?>
 </body>
 </html>
