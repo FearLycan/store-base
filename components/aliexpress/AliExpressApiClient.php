@@ -107,6 +107,7 @@ final class AliExpressApiClient
             ->setMethod('GET')
             ->setUrl('')
             ->setData($requestParams)
+            ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
             ->send();
 
         if (!$response->isOk) {
