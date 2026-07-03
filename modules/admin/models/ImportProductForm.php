@@ -45,6 +45,7 @@ final class ImportProductForm extends Model
         $resolver = new AliExpressLinkResolver();
         $storeId = (int)$this->store_id;
         $queued = 0;
+        $seen = [];
 
         foreach (preg_split('~\r\n|\r|\n~', $this->urls) ?: [] as $line) {
             $line = trim($line);
@@ -56,7 +57,22 @@ final class ImportProductForm extends Model
             if ($externalId === null) {
                 continue;
             }
+            // De-dupe within this paste (same link twice on two lines).
+            if (isset($seen[$externalId])) {
+                continue;
+            }
+            $seen[$externalId] = true;
+            // Already imported for this store.
             if (Product::find()->where(['store_id' => $storeId, 'external_id' => $externalId])->exists()) {
+                continue;
+            }
+            // Already queued and not yet processed (re-paste before the worker ran).
+            $pending = SyncJob::find()
+                ->where(['type' => SyncJobTypeEnum::PRODUCT_DETAIL->value, 'store_id' => $storeId])
+                ->andWhere(['in', 'status', ['pending', 'processing']])
+                ->andWhere(['like', 'payload_json', $externalId])
+                ->exists();
+            if ($pending) {
                 continue;
             }
 
