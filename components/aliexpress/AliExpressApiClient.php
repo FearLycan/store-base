@@ -84,6 +84,9 @@ final class AliExpressApiClient
         return $items;
     }
 
+    /** Extra attempts made after the first when the API returns its per-second `ApiCallLimit` throttle. */
+    private const RATE_LIMIT_RETRIES = 4;
+
     private function sendSignedRequest(string $method, array $extraParams): array
     {
         $appKey = trim((string)(Yii::$app->params['aliexpress.appKey'] ?? ''));
@@ -92,42 +95,69 @@ final class AliExpressApiClient
             throw new RuntimeException('AliExpress API credentials are missing. Configure aliexpress.appKey and aliexpress.appSecret.');
         }
 
-        $requestParams = array_merge([
-            'method'      => $method,
-            'app_key'     => $appKey,
-            'sign_method' => 'md5',
-            'timestamp'   => gmdate('Y-m-d H:i:s'),
-            'format'      => 'json',
-            'v'           => '2.0',
-        ], $extraParams);
-        $requestParams['sign'] = $this->generateSign($requestParams, $appSecret);
+        for ($attempt = 0; ; $attempt++) {
+            // Rebuild params every attempt: the timestamp is part of the signature, so a retried
+            // request needs a fresh timestamp + sign or it is rejected as an invalid signature.
+            $requestParams = array_merge([
+                'method'      => $method,
+                'app_key'     => $appKey,
+                'sign_method' => 'md5',
+                'timestamp'   => gmdate('Y-m-d H:i:s'),
+                'format'      => 'json',
+                'v'           => '2.0',
+            ], $extraParams);
+            $requestParams['sign'] = $this->generateSign($requestParams, $appSecret);
 
-        $response = $this->client
-            ->createRequest()
-            ->setMethod('GET')
-            ->setUrl('')
-            ->setData($requestParams)
-            ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
-            ->send();
+            $response = $this->client
+                ->createRequest()
+                ->setMethod('GET')
+                ->setUrl('')
+                ->setData($requestParams)
+                ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
+                ->send();
 
-        if (!$response->isOk) {
-            throw new RuntimeException('AliExpress API request failed: ' . $response->getContent());
+            if (!$response->isOk) {
+                throw new RuntimeException('AliExpress API request failed: ' . $response->getContent());
+            }
+
+            $data = $response->getData();
+            if (!is_array($data)) {
+                throw new RuntimeException('AliExpress API response is not valid JSON.');
+            }
+
+            $error = $data['error_response'] ?? null;
+            if (is_array($error)) {
+                $code = (string)($error['code'] ?? '');
+                $message = (string)($error['msg'] ?? $error['sub_msg'] ?? 'Unknown API error');
+
+                // The affiliate gateway enforces a strict per-second call frequency and answers a
+                // short ban ("this ban will last N seconds"). Back off and retry transparently
+                // rather than failing the whole job.
+                if ($attempt < self::RATE_LIMIT_RETRIES && $this->isRateLimitError($code, $message)) {
+                    sleep($this->rateLimitBackoffSeconds($message, $attempt));
+                    continue;
+                }
+
+                $details = trim($code . ' ' . $message);
+                throw new RuntimeException('AliExpress API error: ' . ($details !== '' ? $details : 'unknown error'));
+            }
+
+            return $data;
         }
+    }
 
-        $data = $response->getData();
-        if (!is_array($data)) {
-            throw new RuntimeException('AliExpress API response is not valid JSON.');
-        }
+    private function isRateLimitError(string $code, string $message): bool
+    {
+        return stripos($code, 'ApiCallLimit') !== false
+            || stripos($message, 'access frequency exceeds the limit') !== false;
+    }
 
-        $error = $data['error_response'] ?? null;
-        if (is_array($error)) {
-            $code = (string)($error['code'] ?? '');
-            $message = (string)($error['msg'] ?? $error['sub_msg'] ?? 'Unknown API error');
-            $details = trim($code . ' ' . $message);
-            throw new RuntimeException('AliExpress API error: ' . ($details !== '' ? $details : 'unknown error'));
-        }
+    /** Seconds to wait before retrying, derived from the ban stated in the message plus a growing safety margin. */
+    private function rateLimitBackoffSeconds(string $message, int $attempt): int
+    {
+        $ban = preg_match('~ban will last\s+(\d+)\s*second~i', $message, $m) === 1 ? (int)$m[1] : 1;
 
-        return $data;
+        return min(10, max(1, $ban) + $attempt + 1);
     }
 
     private function generateSign(array $params, string $appSecret): string

@@ -36,6 +36,9 @@ final class AliExpressDsClient
     /** Refresh the access token when fewer than this many seconds remain before expiry. */
     private const REFRESH_SKEW = 600;
 
+    /** Extra attempts made after the first when the API returns its per-second `ApiCallLimit` throttle. */
+    private const RATE_LIMIT_RETRIES = 4;
+
     private Client $client;
 
     public function __construct(?Client $client = null)
@@ -262,50 +265,77 @@ final class AliExpressDsClient
     private function request(string $pathname, array $params): array
     {
         $appSecret = $this->appSecret();
-
-        $params = array_merge($params, [
-            'app_key'     => $this->appKey(),
-            'sign_method' => 'sha256',
-            'timestamp'   => (string)((int)round(microtime(true) * 1000)),
-        ]);
-        $params = array_filter($params, static fn ($v): bool => $v !== null && $v !== '');
-
         $signPath = $pathname === '/sync' ? '' : $pathname;
-        $params['sign'] = $this->sign($signPath, $params, $appSecret);
-
         $url = self::API_BASE . (str_starts_with($pathname, '/auth') ? '/rest' : '') . $pathname;
 
-        $response = $this->client
-            ->createRequest()
-            ->setMethod('POST')
-            ->setUrl($url)
-            ->setFormat(Client::FORMAT_URLENCODED)
-            ->addHeaders(['Accept' => 'application/json'])
-            ->setData($params)
-            ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
-            ->send();
+        for ($attempt = 0; ; $attempt++) {
+            // Re-sign every attempt: the timestamp is part of the signature, so a retried request
+            // needs a fresh timestamp + sign.
+            $signed = array_merge($params, [
+                'app_key'     => $this->appKey(),
+                'sign_method' => 'sha256',
+                'timestamp'   => (string)((int)round(microtime(true) * 1000)),
+            ]);
+            $signed = array_filter($signed, static fn ($v): bool => $v !== null && $v !== '');
+            $signed['sign'] = $this->sign($signPath, $signed, $appSecret);
 
-        if (!$response->isOk) {
-            throw new RuntimeException('Dropshipping API HTTP error: ' . $response->statusCode . ' ' . $response->getContent());
-        }
+            $response = $this->client
+                ->createRequest()
+                ->setMethod('POST')
+                ->setUrl($url)
+                ->setFormat(Client::FORMAT_URLENCODED)
+                ->addHeaders(['Accept' => 'application/json'])
+                ->setData($signed)
+                ->setOptions([CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 10])
+                ->send();
 
-        $data = $response->getData();
-        if (!is_array($data)) {
-            throw new RuntimeException('Dropshipping API response is not valid JSON.');
-        }
+            if (!$response->isOk) {
+                throw new RuntimeException('Dropshipping API HTTP error: ' . $response->statusCode . ' ' . $response->getContent());
+            }
 
-        $error = $data['error_response'] ?? null;
-        if (is_array($error)) {
-            $message = trim((string)($error['code'] ?? '') . ' ' . (string)($error['msg'] ?? $error['message'] ?? ''));
-            throw new RuntimeException('Dropshipping API error: ' . ($message !== '' ? $message : 'unknown error'));
-        }
-        // OP gateway surfaces auth/system failures at the top level rather than under error_response.
-        if (isset($data['code'], $data['request_id']) && (string)$data['code'] !== '0' && (string)$data['code'] !== '') {
-            $message = trim((string)$data['code'] . ' ' . (string)($data['message'] ?? $data['msg'] ?? ''));
-            throw new RuntimeException('Dropshipping API error: ' . $message);
-        }
+            $data = $response->getData();
+            if (!is_array($data)) {
+                throw new RuntimeException('Dropshipping API response is not valid JSON.');
+            }
 
-        return $data;
+            $error = $data['error_response'] ?? null;
+            if (is_array($error)) {
+                $code = (string)($error['code'] ?? '');
+                $message = (string)($error['msg'] ?? $error['message'] ?? '');
+                if ($attempt < self::RATE_LIMIT_RETRIES && $this->isRateLimitError($code, $message)) {
+                    sleep($this->rateLimitBackoffSeconds($message, $attempt));
+                    continue;
+                }
+                $detail = trim($code . ' ' . $message);
+                throw new RuntimeException('Dropshipping API error: ' . ($detail !== '' ? $detail : 'unknown error'));
+            }
+            // OP gateway surfaces auth/system failures at the top level rather than under error_response.
+            if (isset($data['code'], $data['request_id']) && (string)$data['code'] !== '0' && (string)$data['code'] !== '') {
+                $code = (string)$data['code'];
+                $message = (string)($data['message'] ?? $data['msg'] ?? '');
+                if ($attempt < self::RATE_LIMIT_RETRIES && $this->isRateLimitError($code, $message)) {
+                    sleep($this->rateLimitBackoffSeconds($message, $attempt));
+                    continue;
+                }
+                throw new RuntimeException('Dropshipping API error: ' . trim($code . ' ' . $message));
+            }
+
+            return $data;
+        }
+    }
+
+    private function isRateLimitError(string $code, string $message): bool
+    {
+        return stripos($code, 'ApiCallLimit') !== false
+            || stripos($message, 'access frequency exceeds the limit') !== false;
+    }
+
+    /** Seconds to wait before retrying, derived from the ban stated in the message plus a growing safety margin. */
+    private function rateLimitBackoffSeconds(string $message, int $attempt): int
+    {
+        $ban = preg_match('~ban will last\s+(\d+)\s*second~i', $message, $m) === 1 ? (int)$m[1] : 1;
+
+        return min(10, max(1, $ban) + $attempt + 1);
     }
 
     private function sign(string $signPath, array $params, string $appSecret): string
