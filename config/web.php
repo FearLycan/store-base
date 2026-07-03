@@ -9,7 +9,10 @@ $config = [
     'defaultRoute' => 'catalog/index',
     'bootstrap'    => ['log'],
     'container'    => [
-        'singletons' => [
+        'definitions' => [
+            \yii\widgets\LinkPager::class => \yii\bootstrap5\LinkPager::class,
+        ],
+        'singletons'  => [
             \yii\mail\MailerInterface::class => [
                 'class'            => \yii\symfonymailer\Mailer::class,
                 // send all mails to a file by default.
