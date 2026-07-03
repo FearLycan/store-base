@@ -43,7 +43,6 @@ tests/_support/_generated
 .agents
 skills-lock.json
 /bin/tailwindcss
-/web/css/app.css
 /web/sitemap.xml
 /web/sitemap/
 /web/uploads/
