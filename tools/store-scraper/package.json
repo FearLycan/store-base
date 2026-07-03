@@ -1,0 +1,17 @@
+{
+  "name": "aliexpress-store-scraper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Klika przez paginację sklepu AliExpress i zapisuje czyste linki do produktów do pliku .txt nazwanego jak sklep.",
+  "bin": {
+    "scrape-store": "scrape-store.mjs"
+  },
+  "scripts": {
+    "scrape": "node scrape-store.mjs",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
