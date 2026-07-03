@@ -35,6 +35,8 @@ $config = [
                         'categories' => ['app\\commands\\' . ucfirst($id) . 'Controller*'],
                         'logFile' => '@runtime/logs/' . $id . '.log',
                         'logVars' => [], // console has no meaningful request vars to dump
+                        'maxFileSize' => 10240,  // KB — rotate at ~10 MB per file
+                        'maxLogFiles' => 5,      // keep .1–.5 backups → ~60 MB cap per command
                     ],
                     ['sync', 'store', 'product', 'review', 'ds', 'sitemap', 'catalog', 'user'],
                 ),
@@ -44,6 +46,8 @@ $config = [
                         'levels' => ['error', 'warning'],
                         'except' => ['app\\commands\\*'],
                         'logVars' => [],
+                        'maxFileSize' => 10240,
+                        'maxLogFiles' => 5,
                     ],
                 ],
             ),
