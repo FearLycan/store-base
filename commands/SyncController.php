@@ -41,7 +41,7 @@ final class SyncController extends Controller
                 Yii::error("SyncJob #{$job->id} failed: {$e->getMessage()}", __METHOD__);
             }
 
-            sleep(random_int(2, 5)); // rate limit between external calls
+            sleep(random_int(3, 6)); // rate limit between external calls
         }
 
         $this->stdout("Processed {$processed} job(s).\n");

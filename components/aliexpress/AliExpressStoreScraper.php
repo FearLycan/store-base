@@ -77,7 +77,7 @@ final class AliExpressStoreScraper
             if ($page >= $totalPage) {
                 break;
             }
-            sleep(random_int(2, 4)); // rate limit between pages
+            sleep(random_int(3, 6)); // rate limit between pages
         }
 
         return $stubs;

@@ -206,7 +206,7 @@ final class ProductController extends Controller
         $shopById = [];
         foreach (array_chunk($ids, 40) as $chunk) {
             for ($attempt = 1; $attempt <= 3; $attempt++) {
-                sleep(2); // stay under the Affiliate call-frequency limit (throttles even the first call)
+                sleep(3); // stay under the Affiliate call-frequency limit (throttles even the first call)
                 try {
                     $shopById += $client->fetchShopIds($chunk);
                     break;
