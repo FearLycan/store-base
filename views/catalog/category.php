@@ -6,6 +6,7 @@
 /** @var app\models\Category[] $children */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array $current */
+/** @var app\models\Store[] $stores */
 use app\components\Seo;
 use app\components\schema\builder\ListingPageSchemaBuilder;
 use app\components\schema\factory\FaqSchemaFactory;
@@ -45,7 +46,7 @@ $cover = $cover ?? '';
 // The intro hero is landing content: hide it once the user narrows with a filter
 // or pages past the first page, leaving just the results.
 $heroActive = false;
-foreach (['min', 'max', 'rating', 'category', 'sale', 'video', 'q'] as $heroKey) {
+foreach (['min', 'max', 'rating', 'category', 'store', 'sale', 'video', 'q'] as $heroKey) {
     if (isset($current[$heroKey]) && trim((string) $current[$heroKey]) !== '') { $heroActive = true; break; }
 }
 $showHero = !$heroActive && (int) ($current['page'] ?? 1) <= 1;
@@ -66,7 +67,7 @@ $showHero = !$heroActive && (int) ($current['page'] ?? 1) <= 1;
 <?php endif; ?>
 <?php endif; ?>
 <?= $this->render('_partials/subcategories', ['category' => $category, 'branch' => $branch, 'children' => $children]) ?>
-<?= $this->render('_partials/filters', ['current' => $current, 'showCategory' => false]) ?>
-<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount]) ?>
+<?= $this->render('_partials/filters', ['current' => $current, 'stores' => $stores, 'showCategory' => false, 'showStore' => true]) ?>
+<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount, 'stores' => $stores]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products here yet.']) ?>
 <?= $this->render('_partials/faq', ['faq' => $faq]) ?>

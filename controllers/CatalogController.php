@@ -6,6 +6,7 @@ namespace app\controllers;
 
 use app\models\Category;
 use app\models\Product;
+use app\models\Store;
 use app\services\CatalogQuery;
 use Yii;
 use yii\data\ActiveDataProvider;
@@ -52,6 +53,7 @@ final class CatalogController extends Controller
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'      => $filters,
             'categories'   => self::topCategories(),
+            'stores'       => Store::withActiveProducts(),
             'chips'        => self::shoppableLeafCategories(),
         ]);
     }
@@ -104,6 +106,7 @@ final class CatalogController extends Controller
             'children'     => $children,
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'      => $filters,
+            'stores'       => Store::withActiveProducts(),
         ]);
     }
 
@@ -119,6 +122,7 @@ final class CatalogController extends Controller
             'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'      => $filters,
             'categories'   => self::topCategories(),
+            'stores'       => Store::withActiveProducts(),
         ]);
     }
 

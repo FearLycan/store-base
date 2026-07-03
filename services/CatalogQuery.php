@@ -62,6 +62,9 @@ final class CatalogQuery
         if (isset($f['category']) && (int)$f['category'] > 0) {
             self::inCategory($query, (int)$f['category']);
         }
+        if (isset($f['store']) && (int)$f['store'] > 0) {
+            $query->andWhere(['product.store_id' => (int)$f['store']]);
+        }
         if (!empty($f['sale'])) {
             $query->andWhere('product.original_price IS NOT NULL AND product.price IS NOT NULL AND product.original_price > product.price');
         }

@@ -3,6 +3,7 @@
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array $current */
 /** @var app\models\Category[] $categories */
+/** @var app\models\Store[] $stores */
 /** @var app\models\Category[] $chips Leaf categories for the chip nav (same look as category pages). */
 use app\components\Seo;
 use app\components\schema\builder\ListingPageSchemaBuilder;
@@ -24,6 +25,6 @@ $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>
-<?= $this->render('_partials/filters', ['current' => $current, 'categories' => $categories, 'showCategory' => true]) ?>
-<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount, 'categories' => $categories]) ?>
+<?= $this->render('_partials/filters', ['current' => $current, 'categories' => $categories, 'stores' => $stores, 'showCategory' => true, 'showStore' => true]) ?>
+<?= $this->render('_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount, 'categories' => $categories, 'stores' => $stores]) ?>
 <?= $this->render('_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products yet.']) ?>

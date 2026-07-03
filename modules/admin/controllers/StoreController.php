@@ -9,6 +9,7 @@ use app\enums\SyncJobTypeEnum;
 use app\models\Store;
 use app\models\SyncJob;
 use app\modules\admin\models\AddStoreForm;
+use app\modules\admin\models\EditStoreForm;
 use Yii;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
@@ -48,6 +49,19 @@ final class StoreController extends Controller
         }
 
         return $this->render('add', ['model' => $model]);
+    }
+
+    public function actionEdit(int $id): Response|string
+    {
+        $store = $this->findStore($id);
+        $model = new EditStoreForm($store);
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            Yii::$app->session->setFlash('success', 'Store updated.');
+
+            return $this->redirect(['view', 'id' => $store->id]);
+        }
+
+        return $this->render('edit', ['model' => $model, 'store' => $store]);
     }
 
     public function actionView(int $id): string

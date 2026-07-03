@@ -16,6 +16,7 @@ $this->title = $store->name;
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0"><?= Html::encode($store->name) ?></h1>
     <div>
+        <?= Html::a('Edit', ['edit', 'id' => $store->id], ['class' => 'btn btn-outline-secondary']) ?>
         <?= Html::a('Import products', ['/admin/product/import'], ['class' => 'btn btn-outline-secondary']) ?>
         <?= Html::a('Sync now', ['sync-now', 'id' => $store->id], ['class' => 'btn btn-outline-primary', 'data-method' => 'post']) ?>
         <?php if ($store->isActive()): ?>
@@ -32,6 +33,14 @@ $this->title = $store->name;
     'attributes' => [
         'id',
         'external_store_id',
+        'slug',
+        [
+            'attribute' => 'image_url',
+            'format' => 'raw',
+            'value' => $store->image_url
+                ? Html::img($store->image_url, ['style' => 'height:64px;width:64px;object-fit:cover;', 'class' => 'rounded border'])
+                : '—',
+        ],
         ['attribute' => 'url', 'format' => 'url'],
         'status',
         'seller_admin_seq',

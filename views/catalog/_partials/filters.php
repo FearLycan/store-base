@@ -1,13 +1,17 @@
 <?php
 /** @var array $current Current query params (filters in effect). */
 /** @var app\models\Category[] $categories Top-level categories for the category select. */
+/** @var app\models\Store[] $stores Stores for the store select. */
 /** @var bool $showCategory Whether to render the category select (hidden on category pages — already scoped). */
+/** @var bool $showStore Whether to render the store select (hidden on store pages — already scoped). */
 /** @var string $action Form action URL; '' submits to the current page (used on the home page to jump into /catalog/all). */
 use yii\helpers\Html;
 use yii\helpers\Url;
 
 $categories   = $categories ?? [];
+$stores       = $stores ?? [];
 $showCategory = $showCategory ?? false;
+$showStore    = $showStore ?? false;
 $action       = $action ?? '';
 
 $sortLabels = [
@@ -24,10 +28,10 @@ $on  = static fn (string $k): bool => !empty($current[$k]);
 
 // Reset is offered only when a narrowing filter is in effect (sort alone doesn't count).
 $hasActive = false;
-foreach (['min', 'max', 'rating', 'category', 'sale', 'video'] as $k) {
+foreach (['min', 'max', 'rating', 'category', 'store', 'sale', 'video'] as $k) {
     if (isset($current[$k]) && $current[$k] !== '') { $hasActive = true; break; }
 }
-$resetUrl = Url::current(['min' => null, 'max' => null, 'rating' => null, 'category' => null, 'sale' => null, 'video' => null, 'sort' => null, 'page' => null]);
+$resetUrl = Url::current(['min' => null, 'max' => null, 'rating' => null, 'category' => null, 'store' => null, 'sale' => null, 'video' => null, 'sort' => null, 'page' => null]);
 
 $check = '<svg viewBox="0 0 12 12" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 6 2.5 2.5 4.5-5"/></svg>';
 ?>
@@ -59,6 +63,15 @@ $check = '<svg viewBox="0 0 12 12" class="h-3 w-3" fill="none" stroke="currentCo
         <option value="">All categories</option>
         <?php foreach ($categories as $c): ?>
             <option value="<?= $c->id ?>"<?= $cur('category') === (string)$c->id ? ' selected' : '' ?>><?= Html::encode($c->name) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <?php endif; ?>
+
+    <?php if ($showStore && $stores !== []): ?>
+    <select name="store" class="filter-select" aria-label="Store" onchange="this.form.requestSubmit()">
+        <option value="">All stores</option>
+        <?php foreach ($stores as $s): ?>
+            <option value="<?= $s->id ?>"<?= $cur('store') === (string)$s->id ? ' selected' : '' ?>><?= Html::encode($s->name) ?></option>
         <?php endforeach; ?>
     </select>
     <?php endif; ?>

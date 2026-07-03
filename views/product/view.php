@@ -320,6 +320,19 @@ $cfg = [
             <span x-text="$store.shop.isFav(<?= Html::encode($slugJson) ?>) ? 'In wishlist' : 'Add to wishlist'">Add to wishlist</span>
         </button>
         <p class="mt-2 text-xs text-gray-400">Price/availability on AliExpress may differ.<?php if ($product->last_price_synced_at): ?> Updated <?= Yii::$app->formatter->asRelativeTime($product->last_price_synced_at) ?>.<?php endif; ?></p>
+
+        <?php if ($product->store !== null && $product->store->slug !== null): ?>
+            <a href="<?= Url::to(['/store/view', 'slug' => $product->store->slug]) ?>" class="mt-4 flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-[color:var(--accent)]">
+                <?= $this->render('//store/_logo', ['store' => $product->store, 'size' => 'sm']) ?>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-xs text-gray-400">Sold by</span>
+                    <span class="block truncate font-semibold text-gray-900"><?= Html::encode($product->store->name) ?></span>
+                </span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 flex-none text-gray-400" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
+        <?php endif; ?>
     </div>
 
     <!-- Sticky mobile buy bar: mirrors the selected-variant price + affiliate CTA.
