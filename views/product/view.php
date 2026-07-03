@@ -1,22 +1,30 @@
 <?php
 /** @var yii\web\View $this */
 /** @var app\models\Product $product */
+
 /** @var app\models\Product[] $related */
-use app\components\Seo;
+
 use app\components\schema\builder\ProductPageSchemaBuilder;
 use app\components\schema\JsonLdRenderer;
+use app\components\Seo;
 use yii\helpers\Html;
 use yii\helpers\Json;
 use yii\helpers\Url;
 
 $canonical = Url::to(['/product/view', 'slug' => $product->slug], true);
-$descText = $product->description !== null ? trim(strip_tags((string)$product->description)) : $product->displayName;
-Seo::apply($this, $product->displayName, $descText !== '' ? $descText : $product->displayName, $canonical, false, (string)$product->main_image);
+$descText = $product->description !== null ? trim(strip_tags((string) $product->description)) : $product->displayName;
+Seo::apply($this, $product->displayName, $descText !== '' ? $descText : $product->displayName, $canonical, false, (string) $product->main_image);
 
 $images = [];
-foreach ($product->images as $img) { $images[] = $img->url; }
-if ($images === [] && $product->main_image) { $images[] = $product->main_image; }
-if ($images === []) { $images[] = '/img/placeholder.png'; }
+foreach ($product->images as $img) {
+    $images[] = $img->url;
+}
+if ($images === [] && $product->main_image) {
+    $images[] = $product->main_image;
+}
+if ($images === []) {
+    $images[] = '/img/placeholder.png';
+}
 
 // The raw "detail" HTML is a vendor blob: a tall stack of marketing graphics
 // plus the odd spec line and cross-sell link spam. Restructure it into clean
@@ -34,7 +42,7 @@ for ($c = $product->category; $c !== null; $c = $c->parent) {
 }
 $categoryTrail = array_reverse($categoryTrail);
 $crumbLinks = array_map(
-    static fn ($c): array => ['label' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
+    static fn($c): array => ['label' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
     $categoryTrail,
 );
 
@@ -44,35 +52,42 @@ $crumbLinks = array_map(
 // same image — so colours get thumbnails while sizes stay as plain pills.
 $groupNames = [];
 $valueOrder = [];   // [name] => values in first-seen order
-$valueImg   = [];   // [name][value] => image|null (null once images conflict)
-$valueSeen  = [];   // [name][value] => true
+$valueImg = [];   // [name][value] => image|null (null once images conflict)
+$valueSeen = [];   // [name][value] => true
 $jsVariants = [];   // flat list handed to Alpine
 
 foreach ($product->variants as $v) {
     $opts = is_array($v->options_json) ? $v->options_json : [];
     $clean = [];
     foreach ($opts as $name => $val) {
-        $name = (string)$name;
-        if ($name === '' || $name[0] === '_') { continue; } // skip _sku_attr et al.
-        $val = trim((string)$val);
-        if ($val === '') { continue; }
+        $name = (string) $name;
+        if ($name === '' || $name[0] === '_') {
+            continue;
+        } // skip _sku_attr et al.
+        $val = trim((string) $val);
+        if ($val === '') {
+            continue;
+        }
         $clean[$name] = $val;
-        if (!in_array($name, $groupNames, true)) { $groupNames[] = $name; $valueOrder[$name] = []; }
-        $img = ($v->image !== null && $v->image !== '') ? (string)$v->image : null;
+        if (!in_array($name, $groupNames, true)) {
+            $groupNames[] = $name;
+            $valueOrder[$name] = [];
+        }
+        $img = ($v->image !== null && $v->image !== '') ? (string) $v->image : null;
         if (!isset($valueSeen[$name][$val])) {
             $valueSeen[$name][$val] = true;
             $valueOrder[$name][] = $val;
             $valueImg[$name][$val] = $img;
-        } elseif (($valueImg[$name][$val] ?? null) !== $img) {
+        } else if (($valueImg[$name][$val] ?? null) !== $img) {
             $valueImg[$name][$val] = null;
         }
     }
     $jsVariants[] = [
-        'opts'   => (object)$clean,
-        'price'  => $v->price !== null ? (int)$v->price : null,
-        'oprice' => $v->original_price !== null ? (int)$v->original_price : null,
-        'stock'  => $v->stock !== null ? (int)$v->stock : null,
-        'image'  => ($v->image !== null && $v->image !== '') ? (string)$v->image : null,
+        'opts'   => (object) $clean,
+        'price'  => $v->price !== null ? (int) $v->price : null,
+        'oprice' => $v->original_price !== null ? (int) $v->original_price : null,
+        'stock'  => $v->stock !== null ? (int) $v->stock : null,
+        'image'  => ($v->image !== null && $v->image !== '') ? (string) $v->image : null,
     ];
 }
 
@@ -85,8 +100,8 @@ $prettyLabel = static function (string $name, array $vals): string {
         'Length' => '~^\d+(?:\.\d+)?\s*(?:m|ft)$~i',
     ];
     foreach ($patterns as $label => $pattern) {
-        $matches = array_filter($vals, static fn ($x): bool => preg_match($pattern, trim((string)$x)) === 1);
-        if (count($matches) >= max(1, (int)ceil(count($vals) * 0.6))) {
+        $matches = array_filter($vals, static fn($x): bool => preg_match($pattern, trim((string) $x)) === 1);
+        if (count($matches) >= max(1, (int) ceil(count($vals) * 0.6))) {
             return $label;
         }
     }
@@ -100,42 +115,53 @@ foreach ($groupNames as $name) {
     $values = [];
     foreach ($valueOrder[$name] as $val) {
         $img = $valueImg[$name][$val] ?? null;
-        if ($img !== null) { $hasImage = true; }
+        if ($img !== null) {
+            $hasImage = true;
+        }
         $values[] = ['value' => $val, 'image' => $img];
     }
     $groups[] = [
-        'name'    => $name,
-        'label'   => $prettyLabel($name, $valueOrder[$name]),
-        'values'  => $values,
+        'name'     => $name,
+        'label'    => $prettyLabel($name, $valueOrder[$name]),
+        'values'   => $values,
         'hasImage' => $hasImage,
     ];
 }
 // Image-bearing groups first (swatches), label-only groups after (pills).
-usort($groups, static fn ($a, $b): int => $b['hasImage'] <=> $a['hasImage']);
+usort($groups, static fn($a, $b): int => $b['hasImage'] <=> $a['hasImage']);
 
 // Preselect the first in-stock variant (fall back to the first) so the page
 // opens on a coherent image + price, matching the SSR-seeded values below.
 $defaultVariant = null;
 foreach ($product->variants as $v) {
-    if ((int)$v->stock > 0) { $defaultVariant = $v; break; }
+    if ((int) $v->stock > 0) {
+        $defaultVariant = $v;
+        break;
+    }
 }
-if ($defaultVariant === null && $product->variants) { $defaultVariant = $product->variants[0]; }
+if ($defaultVariant === null && $product->variants) {
+    $defaultVariant = $product->variants[0];
+}
 
 $defaultSelected = [];
 if ($defaultVariant !== null && is_array($defaultVariant->options_json)) {
     foreach ($defaultVariant->options_json as $name => $val) {
-        $name = (string)$name;
-        if ($name === '' || $name[0] === '_') { continue; }
-        $val = trim((string)$val);
-        if ($val !== '') { $defaultSelected[$name] = $val; }
+        $name = (string) $name;
+        if ($name === '' || $name[0] === '_') {
+            continue;
+        }
+        $val = trim((string) $val);
+        if ($val !== '') {
+            $defaultSelected[$name] = $val;
+        }
     }
 }
 
-$seedPrice    = ($defaultVariant && $defaultVariant->price !== null) ? (int)$defaultVariant->price : $product->price;
-$seedOprice   = $defaultVariant ? ($defaultVariant->original_price !== null ? (int)$defaultVariant->original_price : null) : $product->original_price;
+$seedPrice = ($defaultVariant && $defaultVariant->price !== null) ? (int) $defaultVariant->price : $product->price;
+$seedOprice = $defaultVariant ? ($defaultVariant->original_price !== null ? (int) $defaultVariant->original_price : null) : $product->original_price;
 $seedCurrency = $product->currency_code ?: 'USD';
-$seedDiscount = ($seedPrice && $seedOprice && $seedOprice > $seedPrice) ? (int)round((1 - $seedPrice / $seedOprice) * 100) : null;
-$defaultImage = ($defaultVariant && $defaultVariant->image) ? (string)$defaultVariant->image : $images[0];
+$seedDiscount = ($seedPrice && $seedOprice && $seedOprice > $seedPrice) ? (int) round((1 - $seedPrice / $seedOprice) * 100) : null;
+$defaultImage = ($defaultVariant && $defaultVariant->image) ? (string) $defaultVariant->image : $images[0];
 
 $pdpRec = [
     'slug'     => $product->slug,
@@ -148,15 +174,15 @@ $pdpRec = [
 $slugJson = Json::encode($product->slug);
 
 $cfg = [
-    'images'   => $images,
-    'hasVideo' => (bool)$product->video_url,
-    'groups'   => array_map(static fn ($g): array => [
+    'images'    => $images,
+    'hasVideo'  => (bool) $product->video_url,
+    'groups'    => array_map(static fn($g): array => [
         'name'   => $g['name'],
-        'values' => array_map(static fn ($x): array => ['value' => $x['value'], 'image' => $x['image']], $g['values']),
+        'values' => array_map(static fn($x): array => ['value' => $x['value'], 'image' => $x['image']], $g['values']),
     ], $groups),
-    'variants' => $jsVariants,
-    'base'     => ['price' => $product->price, 'oprice' => $product->original_price, 'currency' => $seedCurrency],
-    'selected' => (object)$defaultSelected,
+    'variants'  => $jsVariants,
+    'base'      => ['price' => $product->price, 'oprice' => $product->original_price, 'currency' => $seedCurrency],
+    'selected'  => (object) $defaultSelected,
     'mainImage' => $defaultImage,
 ];
 ?>
@@ -165,7 +191,7 @@ $cfg = [
 <?= $this->render('//catalog/_partials/breadcrumbs', ['items' => array_merge(
     [['name' => 'Home', 'url' => Url::to(['/catalog/index'])]],
     array_map(
-        static fn ($c): array => ['name' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
+        static fn($c): array => ['name' => $c->name, 'url' => Url::to(['/catalog/category', 'slug' => $c->slug])],
         $categoryTrail,
     ),
     [['name' => $product->displayName, 'url' => null]],
@@ -176,37 +202,41 @@ $cfg = [
     <div class="min-w-0">
         <div class="group relative aspect-square select-none overflow-hidden rounded-xl border border-gray-200 bg-white">
             <?php if ($product->video_url): ?>
-            <video x-show="showVideo" x-cloak controls preload="none" poster="<?= Html::encode($images[0]) ?>" class="h-full w-full object-contain">
-                <source src="<?= Html::encode((string)$product->video_url) ?>" type="video/mp4">
-            </video>
+                <video x-show="showVideo" x-cloak controls preload="none" poster="<?= Html::encode($images[0]) ?>" class="h-full w-full object-contain">
+                    <source src="<?= Html::encode((string) $product->video_url) ?>" type="video/mp4">
+                </video>
             <?php endif; ?>
             <img x-show="!showVideo" :src="main" alt="<?= Html::encode($product->displayName) ?>" class="h-full w-full object-contain transition-opacity duration-150" loading="lazy">
             <?php if (count($images) > 1): ?>
-            <button type="button" @click="prev()" x-show="!showVideo" x-cloak class="pdp-nav left-2" aria-label="Previous image">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <button type="button" @click="next()" x-show="!showVideo" x-cloak class="pdp-nav right-2" aria-label="Next image">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-            <div x-show="!showVideo" x-cloak class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium tabular-nums text-white opacity-0 transition-opacity group-hover:opacity-100">
-                <span x-text="imageIndex + 1"></span>/<?= count($images) ?>
-            </div>
+                <button type="button" @click="prev()" x-show="!showVideo" x-cloak class="pdp-nav left-2" aria-label="Previous image">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <button type="button" @click="next()" x-show="!showVideo" x-cloak class="pdp-nav right-2" aria-label="Next image">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+                <div x-show="!showVideo" x-cloak class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium tabular-nums text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    <span x-text="imageIndex + 1"></span>/<?= count($images) ?>
+                </div>
             <?php endif; ?>
         </div>
         <?php if (count($images) > 1 || $product->video_url): ?>
-        <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
-            <?php if ($product->video_url): ?>
-                <button type="button" @click="showVideo = true" class="pdp-thumb" :class="{ 'is-active': showVideo }" aria-label="Play video">
-                    <img src="<?= Html::encode($images[0]) ?>" alt="" loading="lazy" class="h-full w-full object-cover opacity-70">
-                    <span class="absolute inset-0 flex items-center justify-center text-white drop-shadow">▶</span>
-                </button>
-            <?php endif; ?>
-            <?php foreach ($images as $img): ?>
-                <button type="button" @click="setMain(<?= Html::encode(Json::encode($img)) ?>)" class="pdp-thumb" :class="{ 'is-active': !showVideo && main === <?= Html::encode(Json::encode($img)) ?> }">
-                    <img src="<?= Html::encode($img) ?>" alt="" loading="lazy" class="h-full w-full object-cover">
-                </button>
-            <?php endforeach; ?>
-        </div>
+            <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
+                <?php if ($product->video_url): ?>
+                    <button type="button" @click="showVideo = true" class="pdp-thumb" :class="{ 'is-active': showVideo }" aria-label="Play video">
+                        <img src="<?= Html::encode($images[0]) ?>" alt="" loading="lazy" class="h-full w-full object-cover opacity-70">
+                        <span class="absolute inset-0 flex items-center justify-center text-white drop-shadow">▶</span>
+                    </button>
+                <?php endif; ?>
+                <?php foreach ($images as $img): ?>
+                    <button type="button" @click="setMain(<?= Html::encode(Json::encode($img)) ?>)" class="pdp-thumb" :class="{ 'is-active': !showVideo && main === <?= Html::encode(Json::encode($img)) ?> }">
+                        <img src="<?= Html::encode($img) ?>" alt="" loading="lazy" class="h-full w-full object-cover">
+                    </button>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
     </div>
 
@@ -215,74 +245,78 @@ $cfg = [
 
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <?= $this->render('//catalog/_partials/stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?>
-            <?php if ((int)$product->orders_count > 0): ?>
-                <span class="text-sm text-gray-500"><?= number_format((int)$product->orders_count) ?> sold</span>
+            <?php if ((int) $product->orders_count > 0): ?>
+                <span class="text-sm text-gray-500"><?= number_format((int) $product->orders_count) ?> sold</span>
             <?php endif; ?>
         </div>
 
         <?php if ($groups): ?>
-        <!-- Price reflects the selected variant -->
-        <div class="mt-4 flex flex-wrap items-baseline gap-2">
-            <span class="text-3xl font-bold tabular-nums text-gray-900"><span x-text="priceText"><?= $seedPrice !== null ? Html::encode(number_format($seedPrice / 100, 2)) : '' ?></span> <span class="text-lg font-semibold text-gray-500"><?= Html::encode($seedCurrency) ?></span></span>
-            <span x-show="opriceText" x-cloak class="text-base text-gray-400 line-through tabular-nums" x-text="opriceText"><?= $seedOprice !== null ? Html::encode(number_format($seedOprice / 100, 2)) : '' ?></span>
-            <span x-show="discount" x-cloak class="pdp-discount">−<span x-text="discount"><?= $seedDiscount ?></span>%</span>
-        </div>
-        <!-- Reserve the line height so toggling the stock note never shifts the layout. -->
-        <div class="mt-1.5 min-h-[1.25rem]">
-            <p x-show="lowStock" x-cloak class="text-sm font-medium text-amber-600">Only <span x-text="stock"></span> left in stock</p>
-        </div>
+            <!-- Price reflects the selected variant -->
+            <div class="mt-4 flex flex-wrap items-baseline gap-2">
+                <span class="text-3xl font-bold tabular-nums text-gray-900"><span x-text="priceText"><?= $seedPrice !== null ? Html::encode(number_format($seedPrice / 100, 2)) : '' ?></span> <span class="text-lg font-semibold text-gray-500"><?= Html::encode($seedCurrency) ?></span></span>
+                <span x-show="opriceText" x-cloak class="text-base text-gray-400 line-through tabular-nums" x-text="opriceText"><?= $seedOprice !== null ? Html::encode(number_format($seedOprice / 100, 2)) : '' ?></span>
+                <span x-show="discount" x-cloak class="pdp-discount">−<span x-text="discount"><?= $seedDiscount ?></span>%</span>
+            </div>
+            <!-- Reserve the line height so toggling the stock note never shifts the layout. -->
+            <div class="mt-1.5 min-h-[1.25rem]">
+                <p x-show="lowStock" x-cloak class="text-sm font-medium text-amber-600">Only <span x-text="stock"></span> left in stock</p>
+            </div>
         <?php else: ?>
-        <div class="mt-4"><?= $this->render('//catalog/_partials/price', ['product' => $product]) ?></div>
+            <div class="mt-4"><?= $this->render('//catalog/_partials/price', ['product' => $product]) ?></div>
         <?php endif; ?>
 
         <?php if (($priceDrop = $product->priceDropAmount()) !== null): ?>
-        <p class="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
-            Price dropped <?= Html::encode($product->currency_code ?: 'USD') ?> <?= Html::encode(number_format($priceDrop / 100, 2)) ?>
-        </p>
+            <p class="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M8 3v10M4 9l4 4 4-4"/>
+                </svg>
+                Price dropped <?= Html::encode($product->currency_code ?: 'USD') ?> <?= Html::encode(number_format($priceDrop / 100, 2)) ?>
+            </p>
         <?php endif; ?>
 
-        <?php if ($product->availability !== null && stripos((string)$product->availability, 'out') !== false): ?>
+        <?php if ($product->availability !== null && stripos((string) $product->availability, 'out') !== false): ?>
             <p class="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-sm text-amber-800">Currently unavailable</p>
         <?php endif; ?>
 
         <?php foreach ($groups as $gi => $g): ?>
-        <div class="mt-6">
-            <div class="mb-2 flex items-center gap-1.5 text-sm">
-                <span class="font-semibold text-gray-900"><?= Html::encode($g['label']) ?>:</span>
-                <span class="text-gray-500" x-text="selected[groups[<?= $gi ?>].name] || 'Select'"></span>
+            <div class="mt-6">
+                <div class="mb-2 flex items-center gap-1.5 text-sm">
+                    <span class="font-semibold text-gray-900"><?= Html::encode($g['label']) ?>:</span>
+                    <span class="text-gray-500" x-text="selected[groups[<?= $gi ?>].name] || 'Select'"></span>
+                </div>
+                <?php if ($g['hasImage']): ?>
+                    <div class="flex flex-wrap gap-2">
+                        <?php foreach ($g['values'] as $vi => $val): ?>
+                            <button type="button" @click="pick(<?= $gi ?>, <?= $vi ?>)"
+                                    class="variant-swatch" :class="{ 'is-active': isSel(<?= $gi ?>, <?= $vi ?>), 'is-out': !avail(<?= $gi ?>, <?= $vi ?>) }"
+                                    title="<?= Html::encode((string) $val['value']) ?>">
+                                <?php if ($val['image']): ?>
+                                    <img src="<?= Html::encode($val['image']) ?>" alt="<?= Html::encode((string) $val['value']) ?>" loading="lazy">
+                                <?php else: ?>
+                                    <span><?= Html::encode((string) $val['value']) ?></span>
+                                <?php endif; ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="flex flex-wrap gap-2">
+                        <?php foreach ($g['values'] as $vi => $val): ?>
+                            <button type="button" @click="pick(<?= $gi ?>, <?= $vi ?>)"
+                                    class="variant-pill" :class="{ 'is-active': isSel(<?= $gi ?>, <?= $vi ?>), 'is-out': !avail(<?= $gi ?>, <?= $vi ?>) }">
+                                <?= Html::encode((string) $val['value']) ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
-            <?php if ($g['hasImage']): ?>
-            <div class="flex flex-wrap gap-2">
-                <?php foreach ($g['values'] as $vi => $val): ?>
-                    <button type="button" @click="pick(<?= $gi ?>, <?= $vi ?>)"
-                            class="variant-swatch" :class="{ 'is-active': isSel(<?= $gi ?>, <?= $vi ?>), 'is-out': !avail(<?= $gi ?>, <?= $vi ?>) }"
-                            title="<?= Html::encode((string)$val['value']) ?>">
-                        <?php if ($val['image']): ?>
-                            <img src="<?= Html::encode($val['image']) ?>" alt="<?= Html::encode((string)$val['value']) ?>" loading="lazy">
-                        <?php else: ?>
-                            <span><?= Html::encode((string)$val['value']) ?></span>
-                        <?php endif; ?>
-                    </button>
-                <?php endforeach; ?>
-            </div>
-            <?php else: ?>
-            <div class="flex flex-wrap gap-2">
-                <?php foreach ($g['values'] as $vi => $val): ?>
-                    <button type="button" @click="pick(<?= $gi ?>, <?= $vi ?>)"
-                            class="variant-pill" :class="{ 'is-active': isSel(<?= $gi ?>, <?= $vi ?>), 'is-out': !avail(<?= $gi ?>, <?= $vi ?>) }">
-                        <?= Html::encode((string)$val['value']) ?>
-                    </button>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-        </div>
         <?php endforeach; ?>
 
         <a href="<?= $goUrl ?>" target="_blank" rel="nofollow sponsored noopener" x-ref="buyCta" class="btn-accent mt-6 w-full">View on AliExpress →</a>
         <button type="button" class="pdp-fav" :class="{ 'is-on': $store.shop.isFav(<?= Html::encode($slugJson) ?>) }"
                 @click="$store.shop.toggleFav(<?= Html::encode(Json::encode($pdpRec)) ?>)" :aria-pressed="$store.shop.isFav(<?= Html::encode($slugJson) ?>)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>
+            </svg>
             <span x-text="$store.shop.isFav(<?= Html::encode($slugJson) ?>) ? 'In wishlist' : 'Add to wishlist'">Add to wishlist</span>
         </button>
         <p class="mt-2 text-xs text-gray-400">Price/availability on AliExpress may differ.<?php if ($product->last_price_synced_at): ?> Updated <?= Yii::$app->formatter->asRelativeTime($product->last_price_synced_at) ?>.<?php endif; ?></p>
@@ -306,336 +340,402 @@ $cfg = [
 </div>
 
 <?php if ($product->specs): ?>
-<section class="mt-10" x-data="{ open: false }">
-    <h2 class="mb-3 text-xl font-bold">Specifications</h2>
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <dl class="grid grid-cols-1 sm:grid-cols-2">
-            <?php foreach ($product->specs as $i => $a): ?>
-                <div class="flex justify-between gap-4 border-b border-gray-100 px-4 py-2.5 text-sm"<?= $i >= 8 ? ' x-show="open" x-cloak' : '' ?>>
-                    <dt class="text-gray-500"><?= Html::encode($a->name) ?></dt>
-                    <dd class="text-right font-medium text-gray-800"><?= Html::encode((string)$a->value) ?></dd>
-                </div>
-            <?php endforeach; ?>
-        </dl>
-    </div>
-    <?php if (count($product->specs) > 8): ?>
-    <button @click="open = !open" class="desc-more">
-        <span x-text="open ? 'Show less' : 'Show all specifications'"></span>
-        <span x-show="!open" x-cloak class="tabular-nums text-gray-400">(<?= count($product->specs) ?>)</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 transition-transform duration-200" :class="{ '-rotate-180': open }"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <?php endif; ?>
-</section>
+    <section class="mt-10" x-data="{ open: false }">
+        <h2 class="mb-3 text-xl font-bold">Specifications</h2>
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <dl class="grid grid-cols-1 sm:grid-cols-2">
+                <?php foreach ($product->specs as $i => $a): ?>
+                    <div class="flex justify-between gap-4 border-b border-gray-100 px-4 py-2.5 text-sm"<?= $i >= 8 ? ' x-show="open" x-cloak' : '' ?>>
+                        <dt class="text-gray-500"><?= Html::encode($a->name) ?></dt>
+                        <dd class="text-right font-medium text-gray-800"><?= Html::encode((string) $a->value) ?></dd>
+                    </div>
+                <?php endforeach; ?>
+            </dl>
+        </div>
+        <?php if (count($product->specs) > 8): ?>
+            <button @click="open = !open" class="desc-more">
+                <span x-text="open ? 'Show less' : 'Show all specifications'"></span>
+                <span x-show="!open" x-cloak class="tabular-nums text-gray-400">(<?= count($product->specs) ?>)</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 transition-transform duration-200" :class="{ '-rotate-180': open }">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+        <?php endif; ?>
+    </section>
 <?php endif; ?>
 
 <?= $this->render('//catalog/_partials/price-chart', ['product' => $product]) ?>
 
 <?php if ($descHighlights || $descImages): ?>
-<section class="mt-10" x-data="productDesc(<?= Html::encode(Json::encode(['images' => $descImages, 'collapsed' => $descCollapsed])) ?>)">
-    <h2 class="mb-4 text-xl font-bold">Product details</h2>
+    <section class="mt-10" x-data="productDesc(<?= Html::encode(Json::encode(['images' => $descImages, 'collapsed' => $descCollapsed])) ?>)">
+        <h2 class="mb-4 text-xl font-bold">Product details</h2>
 
-    <?php if ($descHighlights): ?>
-    <div class="desc-highlights">
-        <div class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-[color:var(--accent)]"><path d="M12 2 9.2 8.6 2 9.2l5.5 4.7L5.8 21 12 17.3 18.2 21l-1.7-7.1L22 9.2l-7.2-.6z"/></svg>
-            Highlights
-        </div>
-        <ul class="space-y-2">
-            <?php foreach ($descHighlights as $h): ?>
-            <li class="flex gap-2.5 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;">
-                <span class="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-[color:var(--accent)]"></span>
-                <span><?= Html::encode($h) ?></span>
-            </li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-    <?php endif; ?>
+        <?php if ($descHighlights): ?>
+            <div class="desc-highlights">
+                <div class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-[color:var(--accent)]">
+                        <path d="M12 2 9.2 8.6 2 9.2l5.5 4.7L5.8 21 12 17.3 18.2 21l-1.7-7.1L22 9.2l-7.2-.6z"/>
+                    </svg>
+                    Highlights
+                </div>
+                <ul class="space-y-2">
+                    <?php foreach ($descHighlights as $h): ?>
+                        <li class="flex gap-2.5 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;">
+                            <span class="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-[color:var(--accent)]"></span>
+                            <span><?= Html::encode($h) ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
 
-    <?php if ($descImages): ?>
-    <div class="<?= $descHighlights ? 'mt-5' : '' ?> desc-grid">
-        <?php foreach ($descImages as $i => $im): ?>
-        <?php $wide = $im['w'] && $im['h'] && ($im['w'] / $im['h']) >= 1.5; ?>
-        <figure @click="open(<?= $i ?>)"
-                <?php if ($i >= $descCollapsed): ?>x-show="expanded" x-cloak
-                x-transition:enter="transition duration-300 ease-out"
-                x-transition:enter-start="opacity-0 translate-y-2"
-                x-transition:enter-end="opacity-100 translate-y-0"
-                :style="`transition-delay:${Math.min(<?= $i - $descCollapsed ?>, 6) * 55}ms`"<?php endif; ?>
-                class="desc-shot<?= $wide ? ' is-wide' : '' ?>"
-                <?php if ($im['w'] && $im['h']): ?>style="aspect-ratio:<?= (int)$im['w'] ?>/<?= (int)$im['h'] ?>"<?php endif; ?>>
-            <!-- Wide banners that lack server-side dimensions break out to full width once their natural ratio is known. -->
-            <img src="<?= Html::encode($im['url']) ?>" alt="" loading="lazy" class="block h-full w-full object-cover"
-                 @load="$el.naturalWidth / $el.naturalHeight >= 1.5 && $el.parentElement.classList.add('is-wide')">
-            <span class="desc-zoom" aria-hidden="true">
+        <?php if ($descImages): ?>
+            <div class="<?= $descHighlights ? 'mt-5' : '' ?> desc-grid">
+                <?php foreach ($descImages as $i => $im): ?>
+                    <?php $wide = $im['w'] && $im['h'] && ($im['w'] / $im['h']) >= 1.5; ?>
+                    <figure @click="open(<?= $i ?>)"
+                            <?php if ($i >= $descCollapsed): ?>x-show="expanded" x-cloak
+                            x-transition:enter="transition duration-300 ease-out"
+                            x-transition:enter-start="opacity-0 translate-y-2"
+                            x-transition:enter-end="opacity-100 translate-y-0"
+                            :style="`transition-delay:${Math.min(<?= $i - $descCollapsed ?>, 6) * 55}ms`"<?php endif; ?>
+                            class="desc-shot<?= $wide ? ' is-wide' : '' ?>"
+                            <?php if ($im['w'] && $im['h']): ?>style="aspect-ratio:<?= (int) $im['w'] ?>/<?= (int) $im['h'] ?>"<?php endif; ?>>
+                        <!-- Wide banners that lack server-side dimensions break out to full width once their natural ratio is known. -->
+                        <img src="<?= Html::encode($im['url']) ?>" alt="" loading="lazy" class="block h-full w-full object-cover"
+                             @load="$el.naturalWidth / $el.naturalHeight >= 1.5 && $el.parentElement.classList.add('is-wide')">
+                        <span class="desc-zoom" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
             </span>
-        </figure>
-        <?php endforeach; ?>
-    </div>
+                    </figure>
+                <?php endforeach; ?>
+            </div>
 
-    <?php if ($descCollapsed < count($descImages)): ?>
-    <button type="button" @click="expanded = true" x-show="!expanded" class="desc-more">
-        <span>Show more</span>
-        <span class="tabular-nums text-gray-400">(<span x-text="hidden"><?= count($descImages) - $descCollapsed ?></span>)</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <?php endif; ?>
-    <?php endif; ?>
+            <?php if ($descCollapsed < count($descImages)): ?>
+                <button type="button" @click="expanded = true" x-show="!expanded" class="desc-more">
+                    <span>Show more</span>
+                    <span class="tabular-nums text-gray-400">(<span x-text="hidden"><?= count($descImages) - $descCollapsed ?></span>)</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+            <?php endif; ?>
+        <?php endif; ?>
 
-    <!-- Lightbox -->
-    <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
-         @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
-         x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
-         x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-         x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
-        <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-        <button type="button" @click.stop="prev()" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <img :src="images[lbIndex]?.url" alt="" class="max-h-[88vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
-        <button type="button" @click.stop="next()" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
-    </div>
-</section>
+        <!-- Lightbox -->
+        <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
+             @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
+             x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
+             x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
+            <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+            <button type="button" @click.stop="prev()" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+            <img :src="images[lbIndex]?.url" alt="" class="max-h-[88vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
+            <button type="button" @click.stop="next()" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
+        </div>
+    </section>
 <?php endif; ?>
 
-<?php if ($product->reviews): ?>
 <?php
 // --- Reviews --------------------------------------------------------------
 // Render review text server-side (SEO) and let Alpine handle filtering by
 // keyword/photos plus a shared lightbox. "Impressions" are the keyword tallies
 // AliExpress derives from the reviews (stored on product.review_impressions).
-$revs = array_slice($product->reviews, 0, 20);
-$impressions = is_array($product->review_impressions) ? $product->review_impressions : [];
+// Existing data still holds rating-only blanks and AliExpress's shifting-id
+// duplicates, so filter + dedupe here to keep the section clean even before a
+// backfill. (Import now prevents both — see ProductReview::syncByProduct.)
+$revs = [];
+$seenReviews = [];
+foreach ($product->reviews as $r) {
+    $content = trim((string) $r->content);
+    // Rating-only reviews (no text AND no photo) are noise. Text short-circuits the
+    // image lookup, so only blank-text rows ever touch the images relation.
+    if ($content === '' && count($r->images) === 0) {
+        continue;
+    }
+    $fp = sha1(trim((string) $r->author_name) . '|' . (int) $r->reviewed_at . '|' . $content);
+    if (isset($seenReviews[$fp])) {
+        continue;
+    }
+    $seenReviews[$fp] = true;
+    $revs[] = $r;
+    if (count($revs) >= 20) {
+        break;
+    }
+}
+?>
+<?php if ($revs): ?>
+    <?php
+    $impressions = is_array($product->review_impressions) ? $product->review_impressions : [];
 
-$starRow = static function (float $v, string $cls = 'text-sm'): string {
-    $pct = max(0.0, min(100.0, $v / 5 * 100));
-    return '<span class="relative inline-block whitespace-nowrap leading-none ' . $cls . '" aria-hidden="true">'
-        . '<span class="text-gray-200">★★★★★</span>'
-        . '<span class="absolute inset-0 overflow-hidden text-amber-400" style="width:' . round($pct, 1) . '%">★★★★★</span>'
-        . '</span>';
-};
+    $starRow = static function (float $v, string $cls = 'text-sm'): string {
+        $pct = max(0.0, min(100.0, $v / 5 * 100));
+        return '<span class="relative inline-block whitespace-nowrap leading-none ' . $cls . '" aria-hidden="true">'
+            . '<span class="text-gray-200">★★★★★</span>'
+            . '<span class="absolute inset-0 overflow-hidden text-amber-400" style="width:' . round($pct, 1) . '%">★★★★★</span>'
+            . '</span>';
+    };
 
 // 2-letter ISO country code -> flag emoji (regional indicator pair).
-$flagOf = static function (?string $cc): string {
-    if ($cc === null) { return ''; }
-    $cc = strtoupper(trim($cc));
-    if (preg_match('~^[A-Z]{2}$~', $cc) !== 1) { return ''; }
-    return mb_convert_encoding('&#' . (127397 + ord($cc[0])) . ';', 'UTF-8', 'HTML-ENTITIES')
-        . mb_convert_encoding('&#' . (127397 + ord($cc[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
-};
-$avatarColors = ['#fb7185', '#f59e0b', '#10b981', '#60a5fa', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'];
+    $flagOf = static function (?string $cc): string {
+        if ($cc === null) {
+            return '';
+        }
+        $cc = strtoupper(trim($cc));
+        if (preg_match('~^[A-Z]{2}$~', $cc) !== 1) {
+            return '';
+        }
+        return mb_convert_encoding('&#' . (127397 + ord($cc[0])) . ';', 'UTF-8', 'HTML-ENTITIES')
+            . mb_convert_encoding('&#' . (127397 + ord($cc[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+    };
+    $avatarColors = ['#fb7185', '#f59e0b', '#10b981', '#60a5fa', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'];
 
-$dist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
-$photoStrip = [];   // [url, rating] for the top customer-photos strip
-$allImages  = [];   // flat url list backing the lightbox
-$captions   = [];   // per-image caption (author/rating/text of the source review)
-$meta       = [];   // per-card filter metadata for Alpine
-$cards      = [];   // prepared per-review render data
-$photoCount = 0;
-foreach ($revs as $r) {
-    $rating = (float)$r->rating_value;
-    $bucket = (int)round($rating);
-    if ($bucket >= 1 && $bucket <= 5) { $dist[$bucket]++; }
+    $dist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+    $photoStrip = [];   // [url, rating] for the top customer-photos strip
+    $allImages = [];   // flat url list backing the lightbox
+    $captions = [];   // per-image caption (author/rating/text of the source review)
+    $meta = [];   // per-card filter metadata for Alpine
+    $cards = [];   // prepared per-review render data
+    $photoCount = 0;
+    foreach ($revs as $r) {
+        $rating = (float) $r->rating_value;
+        $bucket = (int) round($rating);
+        if ($bucket >= 1 && $bucket <= 5) {
+            $dist[$bucket]++;
+        }
 
-    $name = trim((string)($r->author_name ?: 'Anonymous'));
-    $initial = preg_match('~[\p{L}\p{N}]~u', $name, $m) === 1 ? mb_strtoupper($m[0]) : '?';
-    $content = trim((string)$r->content);
-    $flag = $flagOf($r->reviewer_country);
-    $date = $r->reviewed_at ? Yii::$app->formatter->asDate($r->reviewed_at, 'medium') : '';
+        $name = trim((string) ($r->author_name ?: 'Anonymous'));
+        $initial = preg_match('~[\p{L}\p{N}]~u', $name, $m) === 1 ? mb_strtoupper($m[0]) : '?';
+        $content = trim((string) $r->content);
+        $flag = $flagOf($r->reviewer_country);
+        $date = $r->reviewed_at ? Yii::$app->formatter->asDate($r->reviewed_at, 'medium') : '';
 
-    $imgIdx = [];
-    foreach ($r->images as $ri) {
-        $url = trim((string)$ri->url);
-        if ($url === '') { continue; } // blank rows must not count as a photo
-        $gi = count($allImages);
-        $imgIdx[] = $gi;
-        $photoStrip[] = ['url' => $url, 'rating' => $rating, 'i' => $gi];
-        $allImages[] = $url;
-        $captions[$gi] = ['n' => $name, 'f' => $flag, 'r' => $rating, 'd' => $date, 'c' => $content];
+        $imgIdx = [];
+        foreach ($r->images as $ri) {
+            $url = trim((string) $ri->url);
+            if ($url === '') {
+                continue;
+            } // blank rows must not count as a photo
+            $gi = count($allImages);
+            $imgIdx[] = $gi;
+            $photoStrip[] = ['url' => $url, 'rating' => $rating, 'i' => $gi];
+            $allImages[] = $url;
+            $captions[$gi] = ['n' => $name, 'f' => $flag, 'r' => $rating, 'd' => $date, 'c' => $content];
+        }
+        if ($imgIdx !== []) {
+            $photoCount++;
+        }
+
+        $cards[] = [
+            'name'    => $name,
+            'initial' => $initial,
+            'color'   => $avatarColors[abs(crc32($name)) % count($avatarColors)],
+            'flag'    => $flag,
+            'rating'  => $rating,
+            'date'    => $date,
+            'content' => $content,
+            'images'  => $imgIdx,
+        ];
+        $meta[] = ['p' => $imgIdx !== [], 't' => mb_strtolower($content), 'r' => $rating, 'd' => (int) $r->reviewed_at];
     }
-    if ($imgIdx !== []) { $photoCount++; }
+    $revTotal = count($cards);
+    $initialShown = 6;
+    $reviewsCfg = ['images' => $allImages, 'captions' => $captions, 'meta' => $meta, 'initial' => $initialShown];
+    ?>
+    <section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
+        <h2 class="mb-4 text-xl font-bold">Customer reviews</h2>
 
-    $cards[] = [
-        'name'    => $name,
-        'initial' => $initial,
-        'color'   => $avatarColors[abs(crc32($name)) % count($avatarColors)],
-        'flag'    => $flag,
-        'rating'  => $rating,
-        'date'    => $date,
-        'content' => $content,
-        'images'  => $imgIdx,
-    ];
-    $meta[] = ['p' => $imgIdx !== [], 't' => mb_strtolower($content), 'r' => $rating, 'd' => (int)$r->reviewed_at];
-}
-$revTotal = count($cards);
-$initialShown = 6;
-$reviewsCfg = ['images' => $allImages, 'captions' => $captions, 'meta' => $meta, 'initial' => $initialShown];
-?>
-<section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
-    <h2 class="mb-4 text-xl font-bold">Customer reviews</h2>
-
-    <!-- Summary: average + verified note + rating distribution -->
-    <div class="rev-summary">
-        <div class="flex flex-none items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
-            <div class="text-5xl font-bold leading-none tabular-nums text-gray-900"><?= number_format((float)$product->rating_value, 1) ?></div>
-            <div>
-                <?= $starRow((float)$product->rating_value, 'text-lg') ?>
-                <div class="mt-1 text-sm text-gray-500"><?= number_format($revTotal) ?> review<?= $revTotal === 1 ? '' : 's' ?></div>
-            </div>
-        </div>
-        <div class="hidden w-px self-stretch bg-gray-100 sm:block"></div>
-        <div class="min-w-0 flex-1">
-            <?php for ($s = 5; $s >= 1; $s--): $pct = $revTotal ? round($dist[$s] / $revTotal * 100) : 0; ?>
-            <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('star', <?= $s ?>) }"
-                    @click="setFilter('star', <?= $s ?>)"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
-                    aria-label="Show <?= $dist[$s] ?> <?= $s ?>-star review<?= $dist[$s] === 1 ? '' : 's' ?>">
-                <span class="w-3 flex-none text-right tabular-nums text-gray-500"><?= $s ?></span>
-                <span class="text-amber-400">★</span>
-                <span class="rev-bar-track"><span class="rev-bar-fill" style="width:<?= $pct ?>%"></span></span>
-                <span class="w-6 flex-none text-right tabular-nums text-gray-400"><?= $dist[$s] ?></span>
-            </button>
-            <?php endfor; ?>
-            <div class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M20 6 9 17l-5-5"/></svg>
-                All from verified purchases
-            </div>
-        </div>
-    </div>
-
-    <?php if ($photoStrip): ?>
-    <!-- Customer photos -->
-    <div class="mt-6">
-        <div class="mb-2.5 text-sm font-semibold text-gray-900">Photos from reviews <span class="font-normal tabular-nums text-gray-400">(<?= count($photoStrip) ?>)</span></div>
-        <div class="flex gap-2.5 overflow-x-auto pb-1.5">
-            <?php foreach (array_slice($photoStrip, 0, 14) as $k => $ph): ?>
-            <button type="button" @click="open(<?= (int)$ph['i'] ?>)" class="rev-photo" aria-label="Open review photo">
-                <img src="<?= Html::encode($ph['url']) ?>" alt="" loading="lazy">
-                <span class="rev-photo-badge"><span class="text-amber-300">★</span><?= number_format($ph['rating'], 1) ?></span>
-                <?php if ($k === 13 && count($photoStrip) > 14): ?>
-                <span class="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">+<?= count($photoStrip) - 14 ?></span>
-                <?php endif; ?>
-            </button>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($impressions || $photoCount): ?>
-    <!-- Filters: all / with photos / impression keywords -->
-    <div class="mt-6 flex flex-wrap gap-2">
-        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('all') }" @click="setFilter('all')">All</button>
-        <?php if ($photoCount): ?>
-        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('photos') }" @click="setFilter('photos')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-            With photos <span class="rev-chip-num"><?= $photoCount ?></span>
-        </button>
-        <?php endif; ?>
-        <?php foreach ($impressions as $imp): $label = trim((string)($imp['label'] ?? '')); if ($label === '') { continue; } ?>
-        <button type="button" class="rev-chip" :class="{ 'is-active': isActive('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>) }" @click="setFilter('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>)">
-            <?= Html::encode($label) ?><?php if ((int)($imp['num'] ?? 0) > 0): ?> <span class="rev-chip-num"><?= (int)$imp['num'] ?></span><?php endif; ?>
-        </button>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <!-- Sort + count -->
-    <div class="mt-6 flex items-center justify-between gap-3">
-        <span class="text-sm text-gray-500"><span x-text="ordered.length"></span> review<span x-show="ordered.length !== 1">s</span></span>
-        <select x-model="sort" class="filter-select" aria-label="Sort reviews">
-            <option value="recent">Most recent</option>
-            <option value="high">Highest rating</option>
-            <option value="low">Lowest rating</option>
-        </select>
-    </div>
-
-    <!-- Review list -->
-    <div class="mt-3.5 flex flex-col gap-3.5">
-        <?php foreach ($cards as $i => $c): ?>
-        <article x-show="cardShown(<?= $i ?>)" x-cloak :style="'order:' + orderOf(<?= $i ?>)" class="rev-card">
-            <div class="flex items-start gap-3">
-                <span class="rev-avatar" style="background-color:<?= Html::encode($c['color']) ?>"><?= Html::encode($c['initial']) ?></span>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                        <span class="truncate font-medium text-gray-900"><?= Html::encode($c['name']) ?></span>
-                        <?php if ($c['flag'] !== ''): ?><span class="text-base leading-none"><?= $c['flag'] ?></span><?php endif; ?>
-                    </div>
-                    <div class="mt-0.5 flex items-center gap-2">
-                        <?= $starRow($c['rating'], 'text-xs') ?>
-                        <?php if ($c['date'] !== ''): ?><span class="text-xs text-gray-400"><?= Html::encode($c['date']) ?></span><?php endif; ?>
-                    </div>
+        <!-- Summary: average + verified note + rating distribution -->
+        <div class="rev-summary">
+            <div class="flex flex-none items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
+                <div class="text-5xl font-bold leading-none tabular-nums text-gray-900"><?= number_format((float) $product->rating_value, 1) ?></div>
+                <div>
+                    <?= $starRow((float) $product->rating_value, 'text-lg') ?>
+                    <div class="mt-1 text-sm text-gray-500"><?= number_format($revTotal) ?> review<?= $revTotal === 1 ? '' : 's' ?></div>
                 </div>
             </div>
-            <?php if ($c['content'] !== ''): ?>
-            <p class="mt-3 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;"><?= Html::encode($c['content']) ?></p>
-            <?php endif; ?>
-            <?php if ($c['images']): ?>
-            <div class="mt-3 flex flex-wrap gap-2">
-                <?php foreach ($c['images'] as $gi): ?>
-                <button type="button" @click="open(<?= (int)$gi ?>)" class="rev-thumb" aria-label="Open review photo">
-                    <img src="<?= Html::encode($allImages[$gi]) ?>" alt="" loading="lazy">
-                </button>
+            <div class="hidden w-px self-stretch bg-gray-100 sm:block"></div>
+            <div class="min-w-0 flex-1">
+                <?php for ($s = 5; $s >= 1; $s--): $pct = $revTotal ? round($dist[$s] / $revTotal * 100) : 0; ?>
+                    <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('star', <?= $s ?>) }"
+                            @click="setFilter('star', <?= $s ?>)"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
+                            aria-label="Show <?= $dist[$s] ?> <?= $s ?>-star review<?= $dist[$s] === 1 ? '' : 's' ?>">
+                        <span class="w-3 flex-none text-right tabular-nums text-gray-500"><?= $s ?></span>
+                        <span class="text-amber-400">★</span>
+                        <span class="rev-bar-track"><span class="rev-bar-fill" style="width:<?= $pct ?>%"></span></span>
+                        <span class="w-6 flex-none text-right tabular-nums text-gray-400"><?= $dist[$s] ?></span>
+                    </button>
+                <?php endfor; ?>
+                <div class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
+                        <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                    All from verified purchases
+                </div>
+            </div>
+        </div>
+
+        <?php if ($photoStrip): ?>
+            <!-- Customer photos -->
+            <div class="mt-6">
+                <div class="mb-2.5 text-sm font-semibold text-gray-900">Photos from reviews <span class="font-normal tabular-nums text-gray-400">(<?= count($photoStrip) ?>)</span></div>
+                <div class="flex gap-2.5 overflow-x-auto pb-1.5">
+                    <?php foreach (array_slice($photoStrip, 0, 14) as $k => $ph): ?>
+                        <button type="button" @click="open(<?= (int) $ph['i'] ?>)" class="rev-photo" aria-label="Open review photo">
+                            <img src="<?= Html::encode($ph['url']) ?>" alt="" loading="lazy">
+                            <span class="rev-photo-badge"><span class="text-amber-300">★</span><?= number_format($ph['rating'], 1) ?></span>
+                            <?php if ($k === 13 && count($photoStrip) > 14): ?>
+                                <span class="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">+<?= count($photoStrip) - 14 ?></span>
+                            <?php endif; ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($impressions || $photoCount): ?>
+            <!-- Filters: all / with photos / impression keywords -->
+            <div class="mt-6 flex flex-wrap gap-2">
+                <button type="button" class="rev-chip" :class="{ 'is-active': isActive('all') }" @click="setFilter('all')">All</button>
+                <?php if ($photoCount): ?>
+                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('photos') }" @click="setFilter('photos')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <circle cx="9" cy="9" r="2"/>
+                            <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>
+                        </svg>
+                        With photos <span class="rev-chip-num"><?= $photoCount ?></span>
+                    </button>
+                <?php endif; ?>
+                <?php foreach ($impressions as $imp): $label = trim((string) ($imp['label'] ?? ''));
+                    if ($label === '') {
+                        continue;
+                    } ?>
+                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>) }" @click="setFilter('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>)">
+                        <?= Html::encode($label) ?><?php if ((int) ($imp['num'] ?? 0) > 0): ?> <span class="rev-chip-num"><?= (int) $imp['num'] ?></span><?php endif; ?>
+                    </button>
                 <?php endforeach; ?>
             </div>
-            <?php endif; ?>
-        </article>
-        <?php endforeach; ?>
-        <p x-show="ordered.length === 0" x-cloak class="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
-    </div>
+        <?php endif; ?>
 
-    <button type="button" @click="expanded = true" x-show="!expanded && hiddenCount > 0" x-cloak class="desc-more mt-4">
-        <span>Show more reviews</span>
-        <span class="tabular-nums text-gray-400">(<span x-text="hiddenCount"></span>)</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
+        <!-- Sort + count -->
+        <div class="mt-6 flex items-center justify-between gap-3">
+            <span class="text-sm text-gray-500"><span x-text="ordered.length"></span> review<span x-show="ordered.length !== 1">s</span></span>
+            <select x-model="sort" class="filter-select" aria-label="Sort reviews">
+                <option value="recent">Most recent</option>
+                <option value="high">Highest rating</option>
+                <option value="low">Lowest rating</option>
+            </select>
+        </div>
 
-    <!-- Lightbox -->
-    <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
-         @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
-         x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
-         x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-         x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
-        <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <!-- Review list -->
+        <div class="mt-3.5 flex flex-col gap-3.5">
+            <?php foreach ($cards as $i => $c): ?>
+                <article x-show="cardShown(<?= $i ?>)" x-cloak :style="'order:' + orderOf(<?= $i ?>)" class="rev-card">
+                    <div class="flex items-start gap-3">
+                        <span class="rev-avatar" style="background-color:<?= Html::encode($c['color']) ?>"><?= Html::encode($c['initial']) ?></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="truncate font-medium text-gray-900"><?= Html::encode($c['name']) ?></span>
+                                <?php if ($c['flag'] !== ''): ?><span class="text-base leading-none"><?= $c['flag'] ?></span><?php endif; ?>
+                            </div>
+                            <div class="mt-0.5 flex items-center gap-2">
+                                <?= $starRow($c['rating'], 'text-xs') ?>
+                                <?php if ($c['date'] !== ''): ?><span class="text-xs text-gray-400"><?= Html::encode($c['date']) ?></span><?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php if ($c['content'] !== ''): ?>
+                        <p class="mt-3 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;"><?= Html::encode($c['content']) ?></p>
+                    <?php endif; ?>
+                    <?php if ($c['images']): ?>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <?php foreach ($c['images'] as $gi): ?>
+                                <button type="button" @click="open(<?= (int) $gi ?>)" class="rev-thumb" aria-label="Open review photo">
+                                    <img src="<?= Html::encode($allImages[$gi]) ?>" alt="" loading="lazy">
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
+            <p x-show="ordered.length === 0" x-cloak class="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
+        </div>
+
+        <button type="button" @click="expanded = true" x-show="!expanded && hiddenCount > 0" x-cloak class="desc-more mt-4">
+            <span>Show more reviews</span>
+            <span class="tabular-nums text-gray-400">(<span x-text="hiddenCount"></span>)</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
         </button>
-        <button type="button" @click.stop="prev()" x-show="images.length > 1" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <img :src="images[lbIndex]" alt="" class="max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
-        <button type="button" @click.stop="next()" x-show="images.length > 1" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-        <div x-show="images.length > 1" class="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
-        <!-- Caption: the review the current photo belongs to -->
-        <div x-show="captions[lbIndex] && (captions[lbIndex].c || captions[lbIndex].n)" x-cloak
-             class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-4 pb-5 pt-16">
-            <div class="mx-auto max-w-2xl text-white">
-                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span class="text-sm font-semibold" x-text="captions[lbIndex]?.n"></span>
-                    <span x-show="captions[lbIndex]?.f" class="text-sm leading-none" x-text="captions[lbIndex]?.f"></span>
-                    <span class="inline-flex items-center gap-0.5 text-xs text-amber-400"><span>★</span><span class="tabular-nums" x-text="captions[lbIndex]?.r?.toFixed(1)"></span></span>
-                    <span x-show="captions[lbIndex]?.d" class="text-xs text-white/55" x-text="captions[lbIndex]?.d"></span>
+
+        <!-- Lightbox -->
+        <div x-show="lightbox" x-cloak @keydown.escape.window="close()"
+             @keydown.arrow-right.window="lightbox && next()" @keydown.arrow-left.window="lightbox && prev()"
+             x-effect="document.body.style.overflow = lightbox ? 'hidden' : ''"
+             x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" @click.self="close()">
+            <button type="button" @click="close()" class="lb-btn absolute right-3 top-3" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+            <button type="button" @click.stop="prev()" x-show="images.length > 1" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+            <img :src="images[lbIndex]" alt="" class="max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
+            <button type="button" @click.stop="next()" x-show="images.length > 1" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+            <div x-show="images.length > 1" class="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
+            <!-- Caption: the review the current photo belongs to -->
+            <div x-show="captions[lbIndex] && (captions[lbIndex].c || captions[lbIndex].n)" x-cloak
+                 class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-4 pb-5 pt-16">
+                <div class="mx-auto max-w-2xl text-white">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-sm font-semibold" x-text="captions[lbIndex]?.n"></span>
+                        <span x-show="captions[lbIndex]?.f" class="text-sm leading-none" x-text="captions[lbIndex]?.f"></span>
+                        <span class="inline-flex items-center gap-0.5 text-xs text-amber-400"><span>★</span><span class="tabular-nums" x-text="captions[lbIndex]?.r?.toFixed(1)"></span></span>
+                        <span x-show="captions[lbIndex]?.d" class="text-xs text-white/55" x-text="captions[lbIndex]?.d"></span>
+                    </div>
+                    <p x-show="captions[lbIndex]?.c" class="mt-1 max-h-24 overflow-y-auto text-sm leading-relaxed text-white/90" x-text="captions[lbIndex]?.c"></p>
                 </div>
-                <p x-show="captions[lbIndex]?.c" class="mt-1 max-h-24 overflow-y-auto text-sm leading-relaxed text-white/90" x-text="captions[lbIndex]?.c"></p>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 <?php endif; ?>
 
 <?php if ($related): ?>
-<section class="mt-10">
-    <h2 class="mb-4 text-xl font-bold">You may also like</h2>
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        <?php foreach ($related as $p): ?><?= $this->render('//catalog/_partials/product-card', ['product' => $p]) ?><?php endforeach; ?>
-    </div>
-</section>
+    <section class="mt-10">
+        <h2 class="mb-4 text-xl font-bold">You may also like</h2>
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <?php foreach ($related as $p): ?>
+                <?= $this->render('//catalog/_partials/product-card', ['product' => $p]) ?>
+            <?php endforeach; ?>
+        </div>
+    </section>
 <?php endif; ?>
 <?= $this->render('//catalog/_partials/recent-strip', ['excludeSlug' => $product->slug]) ?>
 

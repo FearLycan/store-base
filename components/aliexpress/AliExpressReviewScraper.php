@@ -115,7 +115,10 @@ final class AliExpressReviewScraper
         $reviewerName = $this->extractScalarStringByKeys($evaViewItem, ['buyerName', 'nickName', 'anonymousNickName', 'userName']);
         $reviewerCountry = $this->extractReviewerCountry($evaViewItem);
 
-        if ($content === '' && $ratingValue === null && $images === [] && $reviewId === null) {
+        // Skip rating-only reviews (no text AND no photos). AliExpress returns a huge
+        // number of these star-only entries; imported, they flood the list with blank
+        // cards and drown out the reviews that actually say or show something.
+        if ($content === '' && $images === []) {
             return [];
         }
 
