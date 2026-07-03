@@ -230,6 +230,7 @@ final class AliExpressApiClient
             'rating_value'     => $ratingValue,
             'rating_scale_max' => $ratingValue !== null ? 5.0 : null,
             'orders_count'     => $ordersVolume ?? 0,
+            'shop_id'          => $this->extractString($product, ['shop_id']),
             'category_l1_id'   => $this->extractString($product, ['first_level_category_id']),
             'category_l1_name' => $this->extractString($product, ['first_level_category_name']),
             'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
@@ -263,6 +264,41 @@ final class AliExpressApiClient
             'category_l2_id'   => $this->extractString($product, ['second_level_category_id']),
             'category_l2_name' => $this->extractString($product, ['second_level_category_name']),
         ];
+    }
+
+    /**
+     * Map of `product_id => shop_id` for the given item ids in a single Affiliate call (pass up to
+     * ~40 ids; the caller chunks and rate-limits). Ids the API doesn't return are simply omitted.
+     * The authoritative seller identity for verifying a product belongs to the store it was queued
+     * under — the store listing can smuggle in AliExpress "Choice" items from other sellers.
+     *
+     * @param array<int,string> $itemIds
+     * @return array<string,string>
+     */
+    public function fetchShopIds(array $itemIds): array
+    {
+        $itemIds = array_values(array_filter(array_map('strval', $itemIds), static fn (string $s): bool => $s !== ''));
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $data = $this->sendSignedRequest('aliexpress.affiliate.productdetail.get', [
+            'product_ids'     => implode(',', $itemIds),
+            'target_currency' => (string)(Yii::$app->params['aliexpress.targetCurrency'] ?? 'USD'),
+            'target_language' => (string)(Yii::$app->params['aliexpress.targetLanguage'] ?? 'EN'),
+            'ship_to_country' => (string)(Yii::$app->params['aliexpress.shipToCountry'] ?? 'US'),
+        ]);
+
+        $map = [];
+        foreach ($this->extractProducts($data) as $product) {
+            $pid  = $this->extractString($product, ['product_id', 'item_id', 'productId']);
+            $shop = $this->extractString($product, ['shop_id']);
+            if ($pid !== null && $shop !== null) {
+                $map[$pid] = $shop;
+            }
+        }
+
+        return $map;
     }
 
     private function generateAffiliateLink(?string $productUrl, string $trackingId): string

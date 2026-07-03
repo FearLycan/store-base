@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace app\commands;
 
+use app\components\aliexpress\AliExpressApiClient;
 use app\components\llm\NvidiaClient;
 use app\components\llm\OllamaClient;
 use app\components\llm\TitleRewriter;
 use app\enums\SyncJobTypeEnum;
 use app\models\Product;
+use app\models\Store;
 use app\models\SyncJob;
 use Throwable;
 use Yii;
@@ -160,6 +162,116 @@ final class ProductController extends Controller
         $ms = (int)round((microtime(true) - $start) * 1000);
 
         return [$text, $ms, $err];
+    }
+
+    /**
+     * Audits the catalogue against the authoritative Affiliate `shop_id`: reports products whose real
+     * seller differs from the store they were queued under (AliExpress "Choice" cross-sell that the
+     * store listing smuggled in). Read-only by default; pass `--fix=1` to delete the impostors
+     * (children cascade). Same guard now runs at import time, so this is a one-off cleanup of rows
+     * ingested before the guard existed.
+     *
+     * Usage (positional): `php yii product/verify-sellers <storeId|""> <fix> <limit>`
+     *   dry-run all stores : php yii product/verify-sellers
+     *   dry-run store 2    : php yii product/verify-sellers 2
+     *   delete on store 2  : php yii product/verify-sellers 2 1
+     *
+     * @param int|null $storeId only this store when given
+     * @param int      $fix     1 = delete mismatched products; 0 = dry-run report
+     */
+    public function actionVerifySellers(?int $storeId = null, int $fix = 0, int $limit = 5000): int
+    {
+        /** @var array<int,Store> $stores id => Store (for external_store_id lookup) */
+        $stores = Store::find()->indexBy('id')->all();
+
+        $query = Product::find()
+            ->select(['id', 'external_id', 'store_id', 'title'])
+            ->where(['not', ['external_id' => null]])
+            ->andWhere(['<>', 'external_id', ''])
+            ->limit($limit);
+        if ($storeId !== null) {
+            $query->andWhere(['store_id' => $storeId]);
+        }
+        /** @var Product[] $products */
+        $products = $query->all();
+        if ($products === []) {
+            $this->stdout("No products to check.\n");
+
+            return ExitCode::OK;
+        }
+
+        // Resolve the real shop_id for every external_id via the Affiliate API, batched + rate-limited.
+        $client = new AliExpressApiClient();
+        $ids = array_values(array_unique(array_map(static fn (Product $p): string => (string)$p->external_id, $products)));
+        $shopById = [];
+        foreach (array_chunk($ids, 40) as $chunk) {
+            for ($attempt = 1; $attempt <= 3; $attempt++) {
+                sleep(2); // stay under the Affiliate call-frequency limit (throttles even the first call)
+                try {
+                    $shopById += $client->fetchShopIds($chunk);
+                    break;
+                } catch (Throwable $e) {
+                    if ($attempt === 3) {
+                        $this->stderr('Lookup failed for a batch: ' . $e->getMessage() . "\n");
+                        break;
+                    }
+                    sleep(6); // ApiCallLimit extends while hammered — back off hard before retry
+                }
+            }
+        }
+
+        $mismatched = [];
+        $unresolved = 0;
+        foreach ($products as $product) {
+            $store = $stores[$product->store_id] ?? null;
+            $expected = $store !== null ? trim((string)$store->external_store_id) : '';
+            $actual = $shopById[(string)$product->external_id] ?? null;
+            if ($actual === null) {
+                $unresolved++;
+                continue;
+            }
+            if ($expected !== '' && $actual !== $expected) {
+                $mismatched[] = [$product, $expected, $actual];
+            }
+        }
+
+        $this->stdout(sprintf(
+            "Checked %d product(s): %d foreign-seller, %d unresolved (no API data).\n",
+            count($products), count($mismatched), $unresolved,
+        ));
+        foreach ($mismatched as [$product, $expected, $actual]) {
+            $this->stdout(sprintf(
+                "  FOREIGN #%d ext=%s store#%d(shop %s) -> real shop %s | %s\n",
+                $product->id, $product->external_id, $product->store_id, $expected, $actual,
+                mb_substr((string)$product->title, 0, 45),
+            ));
+        }
+
+        if ($mismatched === []) {
+            $this->stdout("Nothing to clean.\n");
+
+            return ExitCode::OK;
+        }
+
+        if ($fix !== 1) {
+            $this->stdout("Dry-run. Re-run with --fix=1 to delete the foreign-seller product(s).\n");
+
+            return ExitCode::OK;
+        }
+
+        $affectedStores = [];
+        $deleted = 0;
+        foreach ($mismatched as [$product]) {
+            $affectedStores[$product->store_id] = true;
+            $product->delete(); // product_image/variant/attribute/review/price_history/click cascade
+            $deleted++;
+        }
+        foreach (array_keys($affectedStores) as $sid) {
+            ($stores[$sid] ?? null)?->recountProducts();
+        }
+        $this->stdout("Deleted {$deleted} foreign-seller product(s); recounted " . count($affectedStores) . " store(s).\n");
+
+        return ExitCode::OK;
     }
 
     public function actionRefreshPrices(int $limit = 500): int

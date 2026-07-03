@@ -71,7 +71,16 @@ final class SyncJobDispatcher
         if ($externalId === '') {
             throw new RuntimeException('Missing external_id in payload.');
         }
-        $product = $this->importer->import($store, $externalId);
+        // Manual admin imports carry trusted=true: we skip the seller guard and take the paste as-is.
+        // Auto-discovery jobs omit it, so the shop_id guard drops cross-sold foreign products.
+        $verifySeller = empty($job->payload_json['trusted']);
+        try {
+            $product = $this->importer->import($store, $externalId, $verifySeller);
+        } catch (ForeignSellerException $e) {
+            // Not this store's seller (Choice cross-sell) — skip quietly: no product, no follow-ups.
+            Yii::info($e->getMessage(), __METHOD__);
+            return;
+        }
         SyncJob::enqueue(SyncJobTypeEnum::PRODUCT_REVIEWS, $store->id, $product->id, ['external_id' => $externalId]);
 
         // New products are imported as DRAFT and only go live once their title is humanised.

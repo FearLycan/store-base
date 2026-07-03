@@ -30,6 +30,63 @@ Progi cadence (config/params.php):
 
 
 ------------------------------------------------------------------------------
+ WORKFLOW: kuracja sklepu (co zrobić na produkcji, od zera)
+------------------------------------------------------------------------------
+Model: sam wybierasz zaufanego sprzedawcę i jego produkty ("wiem co promuję").
+Wklejasz linki raz, a crony utrzymują je w nieskończoność (ceny, recenzje,
+detale) — bez cookie, bez ręcznej obsługi.
+
+  WAŻNE o discovery: oficjalne API AliExpress NIE potrafi wylistować produktów
+  danego sprzedawcy (brak filtra po sellerze — sprawdzone empirycznie). Auto-
+  wypełnienie CAŁEGO sklepu wymaga scrapera listingu (store/discover), który
+  potrzebuje świeżego cookie sesji z x5sec i bywa kruchy. Do kuracji nie jest
+  potrzebny — wystarcza ręczne wklejanie w adminie.
+
+KROK 0 — konfiguracja (jednorazowo, config/params-local.php):
+  - aliexpress.appKey / appSecret / trackingId   (Affiliate API — core, ceny, linki afiliacyjne)
+  - aliexpress.dropshipping.appKey / appSecret   (DS API — galeria HD / warianty / atrybuty)
+  Autoryzuj DS API RAZ: admin -> Settings -> Dropshipping API -> Connect
+  (AE wymaga https w redirect_uri -> użyj tunelu, patrz sekcja na dole). Token
+  potem odświeża się sam, dopóki worker chodzi.
+
+KROK 1 — dodaj sklep(y) do promowania:
+  admin -> Stores -> Add,  albo:
+    php yii store/add "https://pl.aliexpress.com/store/1102516804" "Nazwa sklepu"
+  Ustawia external_store_id = numer z /store/... — to jednocześnie affiliate
+  shop_id, po którym weryfikujemy, że produkt naprawdę należy do sprzedawcy.
+
+KROK 2 — wklej produkty sprzedawcy:
+  admin -> Products -> Import -> wybierz sklep, wklej URL-e lub numeryczne ID
+  (po jednym w linii, można hurtem). Kolejkuje PRODUCT_DETAIL oznaczone jako
+  "trusted" — ręczny wybór przechodzi bez weryfikacji sprzedawcy (guard off).
+
+KROK 3 — przepuść kolejkę (albo po prostu poczekaj na crona sync/process):
+    php yii sync/process 100
+  Produkty wchodzą jako draft -> job TITLE_REWRITE humanizuje tytuł i publikuje
+  (draft -> active). Od tego momentu nic już nie klikasz.
+
+KROK 4 — utrzymanie dzieje się samo (crony niżej): refresh-prices (dziennie),
+  review/sync (co 2 dni), sitemap (dziennie).
+
+NARZĘDZIA / DOBRE PRAKTYKI:
+  - Audyt obcych sprzedawców (gdyby coś wpadło ze scrapera / przed guardem):
+      php yii product/verify-sellers            # dry-run, wszystkie sklepy
+      php yii product/verify-sellers 2          # dry-run, sklep #2
+      php yii product/verify-sellers 2 1        # USUŃ obcych ze sklepu #2
+    Argumenty POZYCYJNE: <storeId> <fix> <limit>  (--flagi tu nie działają).
+  - Guard shop_id: automatyczne discovery odrzuca obcych sprzedawców ("Choice"
+    cross-sell); ręczne wklejenie jest zaufane i przechodzi wszystko.
+  - Rate limit Affiliate: "ApiCallLimit ... ban 1s" przy seriach; przedłuża się,
+    gdy wołasz w trakcie bana. sync/process ma sleep(2-5s) między jobami (OK);
+    verify-sellers ma własny backoff, ale przy dużym katalogu odpalaj cierpliwie.
+
+OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
+  Wklej świeże cookie sesji: admin -> Hub -> Session (musi zawierać x5sec) i zostaw
+  wpis store/discover w cronie. Bez ważnego cookie te joby failują (nieszkodliwie,
+  z jasnym komunikatem). Do czystej kuracji wpis store/discover możesz pominąć.
+
+
+------------------------------------------------------------------------------
  CRONTAB (serwer produkcyjny, Linux)
 ------------------------------------------------------------------------------
 # Podmień /var/www/store-base na realną ścieżkę projektu.
@@ -41,8 +98,9 @@ Progi cadence (config/params.php):
 
 # --- PRODUCENCI (tylko kolejkują joby; worker wyżej je wykonuje) ----------
 
-# Discovery: kolejkuje nowe produkty dla sklepów, które są "due" (próg 6h).
-# Sam pilnuje progu, więc sprawdzanie co godzinę jest OK.
+# Discovery: kolejkuje nowe produkty ze scrapera listingu dla sklepów "due" (próg 6h).
+# OPCJONALNE i KRUCHE: wymaga świeżego cookie sesji (admin -> Hub -> Session, z x5sec).
+# Do czystej kuracji (ręczne wklejanie produktów) ten wpis możesz pominąć.
 0 * * * *      cd /var/www/store-base && php yii store/discover >> runtime/logs/sync.log 2>&1
 
 # Ceny: kolejkuje odświeżenie ceny/dostępności dla produktów starszych niż 1 dzień.

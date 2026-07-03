@@ -60,7 +60,8 @@ final class ImportProductForm extends Model
                 continue;
             }
 
-            SyncJob::enqueue(SyncJobTypeEnum::PRODUCT_DETAIL, $storeId, null, ['external_id' => $externalId]);
+            // trusted=true → the importer skips the seller guard: a manual paste is an explicit choice.
+            SyncJob::enqueue(SyncJobTypeEnum::PRODUCT_DETAIL, $storeId, null, ['external_id' => $externalId, 'trusted' => true]);
             $queued++;
         }
 

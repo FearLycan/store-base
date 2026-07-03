@@ -31,9 +31,16 @@ final class ProductImporter
     ) {
     }
 
-    public function import(Store $store, string $externalId): Product
+    /**
+     * @param bool $verifySeller reject the product when its Affiliate shop_id doesn't match the store
+     *                           (auto-discovery). Manual admin imports pass false — we trust the paste.
+     */
+    public function import(Store $store, string $externalId, bool $verifySeller = true): Product
     {
         $core = $this->apiClient->fetchProductByItemId($externalId);
+        if ($verifySeller) {
+            $this->assertBelongsToStore($store, $externalId, $core);
+        }
 
         $detail = $this->fetchDetail($externalId);
 
@@ -101,6 +108,25 @@ final class ProductImporter
         $store->recountProducts();
 
         return $product;
+    }
+
+    /**
+     * Guard against the store listing smuggling in another seller's product (AliExpress "Choice"
+     * cross-sell): the Affiliate `shop_id` is the authoritative seller, and for genuine store items
+     * it equals the store's `external_store_id` (the /store/<id> number). A mismatch means this item
+     * is not sold by the store we queued it under, so we refuse to attribute it here.
+     *
+     * @param array<string,mixed> $core
+     */
+    private function assertBelongsToStore(Store $store, string $externalId, array $core): void
+    {
+        $expected = trim((string)$store->external_store_id);
+        $actual   = trim((string)($core['shop_id'] ?? ''));
+        if ($expected !== '' && $actual !== '' && $actual !== $expected) {
+            throw new ForeignSellerException(
+                "Product {$externalId} belongs to shop {$actual}, not store #{$store->id} (shop {$expected}) — skipped."
+            );
+        }
     }
 
     /**
