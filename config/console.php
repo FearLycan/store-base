@@ -23,12 +23,30 @@ $config = [
             'class' => \yii\mutex\MysqlMutex::class,
         ],
         'log' => [
-            'targets' => [
+            // Console commands (mostly cron) each get their own log file, routed by the
+            // command's class prefix — Yii::error($msg, __METHOD__) tags every entry with
+            // `app\commands\<Name>Controller::action…`, which these `categories` match.
+            // Everything else (uncategorised core errors) falls through to app.log.
+            'targets' => array_merge(
+                array_map(
+                    static fn (string $id): array => [
+                        'class' => \yii\log\FileTarget::class,
+                        'levels' => ['error', 'warning'],
+                        'categories' => ['app\\commands\\' . ucfirst($id) . 'Controller*'],
+                        'logFile' => '@runtime/logs/' . $id . '.log',
+                        'logVars' => [], // console has no meaningful request vars to dump
+                    ],
+                    ['sync', 'store', 'product', 'review', 'ds', 'sitemap', 'catalog', 'user'],
+                ),
                 [
-                    'class' => \yii\log\FileTarget::class,
-                    'levels' => ['error', 'warning'],
+                    [
+                        'class' => \yii\log\FileTarget::class,
+                        'levels' => ['error', 'warning'],
+                        'except' => ['app\\commands\\*'],
+                        'logVars' => [],
+                    ],
                 ],
-            ],
+            ),
         ],
         'db' => $db,
     ],

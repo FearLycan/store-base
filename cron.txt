@@ -91,7 +91,10 @@ OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
 ------------------------------------------------------------------------------
 # Podmień /var/www/store-base na realną ścieżkę projektu.
 # Cron używa strefy czasowej serwera — godziny poniżej to czas serwera.
-# Logi lecą do runtime/logs/ — upewnij się, że katalog istnieje i jest zapisywalny.
+# Logi: KAŻDA komenda ma własny plik w runtime/logs/<komenda>.log — redirect niżej
+# łapie stdout/stderr (wynik + ew. fatal), a komponent `log` Yii (config/console.php)
+# routuje warningi/errory tej komendy do TEGO SAMEGO pliku. Upewnij się, że katalog
+# runtime/logs/ istnieje i jest zapisywalny.
 
 # --- WORKER: drenuje kolejkę co 10 min (robi realne wywołania AE) ---------
 */10 * * * *   cd /var/www/store-base && php yii sync/process >> runtime/logs/sync.log 2>&1
@@ -101,16 +104,16 @@ OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
 # Discovery: kolejkuje nowe produkty ze scrapera listingu dla sklepów "due" (próg 6h).
 # OPCJONALNE i KRUCHE: wymaga świeżego cookie sesji (admin -> Hub -> Session, z x5sec).
 # Do czystej kuracji (ręczne wklejanie produktów) ten wpis możesz pominąć.
-0 * * * *      cd /var/www/store-base && php yii store/discover >> runtime/logs/sync.log 2>&1
+0 * * * *      cd /var/www/store-base && php yii store/discover >> runtime/logs/store.log 2>&1
 
 # Ceny: kolejkuje odświeżenie ceny/dostępności dla produktów starszych niż 1 dzień.
 # Raz na dobę (03:15).
-15 3 * * *     cd /var/www/store-base && php yii product/refresh-prices >> runtime/logs/sync.log 2>&1
+15 3 * * *     cd /var/www/store-base && php yii product/refresh-prices >> runtime/logs/product.log 2>&1
 
 # Recenzje: kolejkuje re-sync recenzji dla produktów starszych niż 3 dni.
 # Raz na dobę (03:30) — sam ogranicza się progiem, więc codzienne odpalenie
 # realnie dotknie tylko tych faktycznie przeterminowanych.
-30 3 * * *     cd /var/www/store-base && php yii review/sync >> runtime/logs/sync.log 2>&1
+30 3 * * *     cd /var/www/store-base && php yii review/sync >> runtime/logs/review.log 2>&1
 
 # --- UTRZYMANIE -----------------------------------------------------------
 
@@ -118,7 +121,7 @@ OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
 # Klient odświeża access_token sam przy imporcie, ale to działa tylko gdy worker
 # faktycznie coś importuje — przy dłuższym przestoju refresh_token mógłby wygasnąć
 # i wymusić ręczny OAuth. Ten wpis trzyma łańcuch żywy nawet na bezczynnym sklepie.
-0 */6 * * *    cd /var/www/store-base && php yii ds/refresh-token >> runtime/logs/sync.log 2>&1
+0 */6 * * *    cd /var/www/store-base && php yii ds/refresh-token >> runtime/logs/ds.log 2>&1
 
 # Sitemap: regeneruje gzipowaną mapę strony. Raz na dobę (04:00), po syncach.
 0 4 * * *      cd /var/www/store-base && php yii sitemap/generate >> runtime/logs/sitemap.log 2>&1
