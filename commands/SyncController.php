@@ -19,6 +19,24 @@ final class SyncController extends Controller
 {
     public function actionProcess(?int $limit = null): int
     {
+        // Only one worker at a time: overlapping cron runs would claim jobs in parallel and
+        // burst the AliExpress per-second limit. A second run just exits instead of doubling up.
+        $lock = 'sync/process';
+        if (!Yii::$app->mutex->acquire($lock)) {
+            $this->stdout("sync/process already running; skipping.\n");
+
+            return ExitCode::OK;
+        }
+
+        try {
+            return $this->processQueue($limit);
+        } finally {
+            Yii::$app->mutex->release($lock);
+        }
+    }
+
+    private function processQueue(?int $limit): int
+    {
         $limit = $limit ?? (int)(Yii::$app->params['sync.batchSize'] ?? 20);
         $maxAttempts = (int)(Yii::$app->params['sync.maxAttempts'] ?? 5);
         $dispatcher = new SyncJobDispatcher();

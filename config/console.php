@@ -17,6 +17,11 @@ $config = [
         'cache' => [
             'class' => \yii\caching\FileCache::class,
         ],
+        'mutex' => [
+            // DB-backed named locks (GET_LOCK) so overlapping cron runs of the same
+            // command skip instead of doubling up API calls. Auto-released on exit.
+            'class' => \yii\mutex\MysqlMutex::class,
+        ],
         'log' => [
             'targets' => [
                 [
