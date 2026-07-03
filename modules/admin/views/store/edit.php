@@ -23,6 +23,12 @@ $this->title = 'Edit store: ' . $store->name;
                 <img src="<?= Html::encode((string) $store->image_url) ?>" alt="" class="rounded border" style="height:80px;width:80px;object-fit:cover;">
             </div>
         <?php endif; ?>
+        <hr>
+        <p class="text-muted small mb-2">Social &amp; web links — shown on the public store page. Leave blank to hide.</p>
+        <?= $form->field($model, 'website_url')->textInput(['placeholder' => 'https://…']) ?>
+        <?= $form->field($model, 'instagram_url')->textInput(['placeholder' => 'https://instagram.com/…']) ?>
+        <?= $form->field($model, 'facebook_url')->textInput(['placeholder' => 'https://facebook.com/…']) ?>
+        <?= $form->field($model, 'tiktok_url')->textInput(['placeholder' => 'https://tiktok.com/@…']) ?>
         <div class="mt-3">
             <?= Html::submitButton('Save', ['class' => 'btn btn-primary']) ?>
             <?= Html::a('Cancel', ['view', 'id' => $store->id], ['class' => 'btn btn-link']) ?>

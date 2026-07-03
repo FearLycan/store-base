@@ -27,6 +27,7 @@ $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
     <div class="min-w-0">
         <h1 class="text-2xl font-bold leading-tight"><?= Html::encode($store->name) ?></h1>
         <p class="mt-1 text-sm text-gray-500"><?= number_format($dataProvider->totalCount) ?> product<?= $dataProvider->totalCount === 1 ? '' : 's' ?></p>
+        <?= $this->render('_socials', ['store' => $store]) ?>
     </div>
 </div>
 

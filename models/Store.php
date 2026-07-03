@@ -18,6 +18,10 @@ use yii\helpers\Inflector;
  * @property string|null $slug
  * @property string|null $image_url
  * @property string $url
+ * @property string|null $website_url
+ * @property string|null $instagram_url
+ * @property string|null $facebook_url
+ * @property string|null $tiktok_url
  * @property string|null $seller_admin_seq
  * @property string $status
  * @property int|null $last_discovery_at
@@ -48,7 +52,8 @@ class Store extends ActiveRecord
             [['slug'], 'unique'],
             [['external_store_id', 'seller_id', 'seller_admin_seq', 'status'], 'string', 'max' => 64],
             [['name', 'slug'], 'string', 'max' => 255],
-            [['url', 'image_url'], 'string', 'max' => 1024],
+            [['url', 'image_url', 'website_url', 'instagram_url', 'facebook_url', 'tiktok_url'], 'string', 'max' => 1024],
+            [['website_url', 'instagram_url', 'facebook_url', 'tiktok_url'], 'url', 'defaultScheme' => 'https', 'skipOnEmpty' => true],
             [['last_discovery_at', 'last_full_sync_at', 'product_count'], 'integer'],
             [['status'], 'default', 'value' => StoreStatusEnum::ACTIVE->value],
         ];
