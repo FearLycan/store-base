@@ -11,8 +11,15 @@ use yii\helpers\Url;
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var int|null $storeId */
+/** @var string $q */
+/** @var string $status */
 
 $this->title = 'Products';
+
+$statusOptions = [];
+foreach (ProductStatusEnum::cases() as $case) {
+    $statusOptions[$case->value] = $case->label();
+}
 
 $this->registerJs(<<<'JS'
 document.addEventListener('change', function (e) {
@@ -44,6 +51,15 @@ JS);
     <h1 class="h3 mb-0"><?= Html::encode($this->title) ?></h1>
     <?= Html::a('Import products', ['import'], ['class' => 'btn btn-primary']) ?>
 </div>
+
+<?= $this->render('/_partials/_filter', [
+    'action' => 'index',
+    'q' => $q,
+    'status' => $status,
+    'statuses' => $statusOptions,
+    'placeholder' => 'Search products by title…',
+    'hidden' => $storeId !== null ? ['store_id' => $storeId] : [],
+]) ?>
 
 <?= GridView::widget([
     'dataProvider' => $dataProvider,

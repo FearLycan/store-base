@@ -31,16 +31,29 @@ final class ProductController extends Controller
         ];
     }
 
-    public function actionIndex(?int $store_id = null): string
+    public function actionIndex(?int $store_id = null, ?string $q = null, ?string $status = null): string
     {
         $query = Product::find()->with('store')->orderBy(['id' => SORT_DESC]);
         if ($store_id !== null) {
             $query->andWhere(['store_id' => $store_id]);
         }
 
+        $q = trim((string)$q);
+        if ($q !== '') {
+            // Match either the raw AliExpress title or the humanized display_title.
+            $query->andWhere(['or', ['like', 'title', $q], ['like', 'display_title', $q]]);
+        }
+
+        $status = (string)$status;
+        if ($status !== '' && ProductStatusEnum::tryFrom($status) !== null) {
+            $query->andWhere(['status' => $status]);
+        }
+
         return $this->render('index', [
             'dataProvider' => new ActiveDataProvider(['query' => $query]),
             'storeId' => $store_id,
+            'q' => $q,
+            'status' => $status,
         ]);
     }
 

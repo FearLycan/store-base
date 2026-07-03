@@ -2,14 +2,22 @@
 
 declare(strict_types=1);
 
+use app\enums\StoreStatusEnum;
 use app\models\Store;
 use yii\grid\GridView;
 use yii\helpers\Html;
 
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
+/** @var string $q */
+/** @var string $status */
 
 $this->title = 'Stores';
+
+$statusOptions = [];
+foreach (StoreStatusEnum::cases() as $case) {
+    $statusOptions[$case->value] = $case->value;
+}
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0"><?= Html::encode($this->title) ?></h1>
@@ -18,6 +26,14 @@ $this->title = 'Stores';
         <?= Html::a('+ Add store', ['add'], ['class' => 'btn btn-primary']) ?>
     </div>
 </div>
+
+<?= $this->render('/_partials/_filter', [
+    'action' => 'index',
+    'q' => $q,
+    'status' => $status,
+    'statuses' => $statusOptions,
+    'placeholder' => 'Search stores by name…',
+]) ?>
 
 <?= GridView::widget([
     'dataProvider' => $dataProvider,

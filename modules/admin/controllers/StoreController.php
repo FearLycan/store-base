@@ -17,12 +17,24 @@ use yii\web\Response;
 
 final class StoreController extends Controller
 {
-    public function actionIndex(): string
+    public function actionIndex(?string $q = null, ?string $status = null): string
     {
+        $query = Store::find()->orderBy(['id' => SORT_DESC]);
+
+        $q = trim((string)$q);
+        if ($q !== '') {
+            $query->andWhere(['like', 'name', $q]);
+        }
+
+        $status = (string)$status;
+        if ($status !== '' && StoreStatusEnum::tryFrom($status) !== null) {
+            $query->andWhere(['status' => $status]);
+        }
+
         return $this->render('index', [
-            'dataProvider' => new ActiveDataProvider([
-                'query' => Store::find()->orderBy(['id' => SORT_DESC]),
-            ]),
+            'dataProvider' => new ActiveDataProvider(['query' => $query]),
+            'q' => $q,
+            'status' => $status,
         ]);
     }
 
