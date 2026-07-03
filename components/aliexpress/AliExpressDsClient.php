@@ -39,6 +39,13 @@ final class AliExpressDsClient
     /** Extra attempts made after the first when the API returns its per-second `ApiCallLimit` throttle. */
     private const RATE_LIMIT_RETRIES = 4;
 
+    /**
+     * Extra attempts made after the first when the API returns a transient server-side timeout
+     * (`ServiceTimeout`/RPC timeout, `SystemBusy`, …) — the gateway's internal RPC was slow, not a
+     * problem with our request, so a short backoff-and-retry usually succeeds.
+     */
+    private const TIMEOUT_RETRIES = 2;
+
     private Client $client;
 
     public function __construct(?Client $client = null)
@@ -268,7 +275,9 @@ final class AliExpressDsClient
         $signPath = $pathname === '/sync' ? '' : $pathname;
         $url = self::API_BASE . (str_starts_with($pathname, '/auth') ? '/rest' : '') . $pathname;
 
-        for ($attempt = 0; ; $attempt++) {
+        $rateLimitAttempts = 0;
+        $timeoutAttempts = 0;
+        while (true) {
             // Re-sign every attempt: the timestamp is part of the signature, so a retried request
             // needs a fresh timestamp + sign.
             $signed = array_merge($params, [
@@ -302,8 +311,7 @@ final class AliExpressDsClient
             if (is_array($error)) {
                 $code = (string)($error['code'] ?? '');
                 $message = (string)($error['msg'] ?? $error['message'] ?? '');
-                if ($attempt < self::RATE_LIMIT_RETRIES && $this->isRateLimitError($code, $message)) {
-                    sleep($this->rateLimitBackoffSeconds($message, $attempt));
+                if ($this->maybeRetry($code, $message, $rateLimitAttempts, $timeoutAttempts)) {
                     continue;
                 }
                 $detail = trim($code . ' ' . $message);
@@ -313,8 +321,7 @@ final class AliExpressDsClient
             if (isset($data['code'], $data['request_id']) && (string)$data['code'] !== '0' && (string)$data['code'] !== '') {
                 $code = (string)$data['code'];
                 $message = (string)($data['message'] ?? $data['msg'] ?? '');
-                if ($attempt < self::RATE_LIMIT_RETRIES && $this->isRateLimitError($code, $message)) {
-                    sleep($this->rateLimitBackoffSeconds($message, $attempt));
+                if ($this->maybeRetry($code, $message, $rateLimitAttempts, $timeoutAttempts)) {
                     continue;
                 }
                 throw new RuntimeException('Dropshipping API error: ' . trim($code . ' ' . $message));
@@ -324,10 +331,50 @@ final class AliExpressDsClient
         }
     }
 
+    /**
+     * Sleep-and-signal whether the caller should retry the request for a transient error. Rate-limit
+     * throttles and server-side timeouts each get their own attempt budget and backoff curve; anything
+     * else (bad params, auth, unknown) returns false so the caller throws immediately.
+     */
+    private function maybeRetry(string $code, string $message, int &$rateLimitAttempts, int &$timeoutAttempts): bool
+    {
+        if ($this->isRateLimitError($code, $message) && $rateLimitAttempts < self::RATE_LIMIT_RETRIES) {
+            sleep($this->rateLimitBackoffSeconds($message, $rateLimitAttempts));
+            $rateLimitAttempts++;
+
+            return true;
+        }
+        if ($this->isTimeoutError($code, $message) && $timeoutAttempts < self::TIMEOUT_RETRIES) {
+            sleep($this->timeoutBackoffSeconds($timeoutAttempts));
+            $timeoutAttempts++;
+
+            return true;
+        }
+
+        return false;
+    }
+
     private function isRateLimitError(string $code, string $message): bool
     {
         return stripos($code, 'ApiCallLimit') !== false
             || stripos($message, 'access frequency exceeds the limit') !== false;
+    }
+
+    /**
+     * A retryable server-side timeout / overload, as opposed to a client error. Covers the gateway's
+     * `ServiceTimeout` (message "…failed due to RPC timeout"), plus the sibling `SystemBusy` /
+     * `ServiceUnavailable` / remote-connection-timeout codes it returns under the same conditions.
+     */
+    private function isTimeoutError(string $code, string $message): bool
+    {
+        foreach (['ServiceTimeout', 'SystemBusy', 'ServiceUnavailable', 'remote-connection-timeout', 'remote-service-timeout'] as $needle) {
+            if (stripos($code, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return stripos($message, 'rpc timeout') !== false
+            || stripos($message, 'system is busy') !== false;
     }
 
     /** Seconds to wait before retrying, derived from the ban stated in the message plus a growing safety margin. */
@@ -336,6 +383,12 @@ final class AliExpressDsClient
         $ban = preg_match('~ban will last\s+(\d+)\s*second~i', $message, $m) === 1 ? (int)$m[1] : 1;
 
         return min(10, max(1, $ban) + $attempt + 1);
+    }
+
+    /** Growing backoff for transient timeouts: give the overloaded backend a moment to recover (2s, 5s, …). */
+    private function timeoutBackoffSeconds(int $attempt): int
+    {
+        return 2 + (3 * $attempt);
     }
 
     private function sign(string $signPath, array $params, string $appSecret): string
