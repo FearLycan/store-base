@@ -88,9 +88,11 @@ class ProductReview extends ActiveRecord
             ProductReviewImage::deleteAll(['review_id' => $review->id]);
             $position = 0;
             foreach (($item['images'] ?? []) as $url) {
+                $url = trim((string)$url);
+                if ($url === '') { continue; } // don't persist blank photo rows
                 $image = new ProductReviewImage();
                 $image->review_id = $review->id;
-                $image->url = (string)$url;
+                $image->url = $url;
                 $image->position = $position++;
                 $image->save();
             }

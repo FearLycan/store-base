@@ -451,10 +451,12 @@ foreach ($revs as $r) {
 
     $imgIdx = [];
     foreach ($r->images as $ri) {
+        $url = trim((string)$ri->url);
+        if ($url === '') { continue; } // blank rows must not count as a photo
         $gi = count($allImages);
         $imgIdx[] = $gi;
-        $photoStrip[] = ['url' => $ri->url, 'rating' => $rating, 'i' => $gi];
-        $allImages[] = $ri->url;
+        $photoStrip[] = ['url' => $url, 'rating' => $rating, 'i' => $gi];
+        $allImages[] = $url;
         $captions[$gi] = ['n' => $name, 'f' => $flag, 'r' => $rating, 'd' => $date, 'c' => $content];
     }
     if ($imgIdx !== []) { $photoCount++; }

@@ -10,8 +10,15 @@ use yii\helpers\Url;
 
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
+/** @var string $q */
+/** @var string $status */
 
 $this->title = 'Categories';
+
+$statusOptions = [];
+foreach (CategoryStatusEnum::cases() as $case) {
+    $statusOptions[$case->value] = $case->label();
+}
 
 $this->registerJs(<<<'JS'
 document.addEventListener('change', function (e) {
@@ -47,6 +54,14 @@ JS);
     Top-level categories appear on the storefront home as cover tiles. Set a custom image below; when none is set,
     the tile shows the category's best-selling product photo automatically.
 </p>
+
+<?= $this->render('/_partials/_filter', [
+    'action' => 'index',
+    'q' => $q,
+    'status' => $status,
+    'statuses' => $statusOptions,
+    'placeholder' => 'Search categories by name…',
+]) ?>
 
 <?= GridView::widget([
     'dataProvider' => $dataProvider,

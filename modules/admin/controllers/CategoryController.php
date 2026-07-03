@@ -28,13 +28,27 @@ final class CategoryController extends Controller
         ];
     }
 
-    public function actionIndex(): string
+    public function actionIndex(?string $q = null, ?string $status = null): string
     {
+        $query = Category::find()->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC]);
+
+        $q = trim((string)$q);
+        if ($q !== '') {
+            $query->andWhere(['like', 'name', $q]);
+        }
+
+        $status = (string)$status;
+        if ($status !== '' && CategoryStatusEnum::tryFrom($status) !== null) {
+            $query->andWhere(['status' => $status]);
+        }
+
         return $this->render('index', [
             'dataProvider' => new ActiveDataProvider([
-                'query' => Category::find()->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC]),
+                'query' => $query,
                 'pagination' => ['pageSize' => 50],
             ]),
+            'q' => $q,
+            'status' => $status,
         ]);
     }
 
