@@ -25,8 +25,8 @@ final class ProductController extends Controller
 {
     /**
      * Queues a full detail re-import (DS API: HD gallery / variants / attributes) for products that
-     * already exist. Unlike `store/discover`, which only ingests new products, this refreshes the
-     * existing catalogue. Process the queued jobs afterwards with `php yii sync/process`.
+     * already exist — refreshes the existing catalogue rather than ingesting new products. Process
+     * the queued jobs afterwards with `php yii sync/process`.
      *
      * @param int|null $storeId only this store when given
      */

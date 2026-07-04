@@ -96,6 +96,19 @@ class SyncJob extends ActiveRecord
         $this->save(false);
     }
 
+    /**
+     * Terminal skip for a permanent, non-retryable condition (e.g. the product is not in the affiliate
+     * program). Records the reason so it stays visible in the admin queue, but — unlike {@see markFailed} —
+     * does not consume the retry budget or bounce the job back to `pending`.
+     */
+    public function markSkipped(string $reason): void
+    {
+        $this->status = SyncJobStatusEnum::SKIPPED->value;
+        $this->error_message = mb_substr(trim($reason), 0, 1000);
+        $this->processed_at = time();
+        $this->save(false);
+    }
+
     public function markFailed(string $error, int $maxAttempts, int $backoffSeconds = 3600): void
     {
         $this->attempts++;

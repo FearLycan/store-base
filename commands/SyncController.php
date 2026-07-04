@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\commands;
 
+use app\components\aliexpress\NonRetryableJobException;
 use app\components\aliexpress\SyncJobDispatcher;
 use app\models\SyncJob;
 use Throwable;
@@ -53,6 +54,11 @@ final class SyncController extends Controller
                 $job->markDone();
                 $processed++;
                 $this->stdout("OK   job #{$job->id} ({$job->type})\n");
+            } catch (NonRetryableJobException $e) {
+                // Permanent condition (e.g. product not in the affiliate program): park it terminally
+                // so it stops occupying the queue, instead of retrying to the max attempt budget.
+                $job->markSkipped($e->getMessage());
+                $this->stdout("SKIP job #{$job->id} ({$job->type}): {$e->getMessage()}\n");
             } catch (Throwable $e) {
                 $job->markFailed($e->getMessage(), $maxAttempts);
                 $this->stderr("FAIL job #{$job->id} ({$job->type}): {$e->getMessage()}\n");

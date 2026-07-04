@@ -18,7 +18,7 @@ $this->title = 'Add store';
         <?= $form->field($model, 'url')->textInput(['placeholder' => 'https://pl.aliexpress.com/store/1102516804']) ?>
         <?= $form->field($model, 'name')->textInput(['placeholder' => 'optional display name']) ?>
         <div class="mt-3">
-            <?= Html::submitButton('Add &amp; queue discovery', ['class' => 'btn btn-primary']) ?>
+            <?= Html::submitButton('Add store', ['class' => 'btn btn-primary']) ?>
             <?= Html::a('Cancel', ['index'], ['class' => 'btn btn-link']) ?>
         </div>
         <?php ActiveForm::end(); ?>

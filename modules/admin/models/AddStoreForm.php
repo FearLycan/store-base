@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace app\modules\admin\models;
 
 use app\components\aliexpress\AliExpressLinkResolver;
-use app\enums\SyncJobTypeEnum;
 use app\models\Store;
-use app\models\SyncJob;
 use yii\base\Model;
 
 final class AddStoreForm extends Model
@@ -51,8 +49,6 @@ final class AddStoreForm extends Model
 
             return null;
         }
-
-        SyncJob::enqueue(SyncJobTypeEnum::STORE_DISCOVERY, $store->id, null);
 
         return $store;
     }

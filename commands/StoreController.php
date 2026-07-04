@@ -5,18 +5,13 @@ declare(strict_types=1);
 namespace app\commands;
 
 use app\components\aliexpress\AliExpressLinkResolver;
-use app\enums\StoreStatusEnum;
-use app\enums\SyncJobTypeEnum;
 use app\models\Store;
-use app\models\SyncJob;
-use Yii;
 use yii\console\Controller;
 use yii\console\ExitCode;
 
 /**
  * Store management from the console.
- * - `store/add <url>`  : register a source store and queue its first discovery.
- * - `store/discover`   : queue discovery for active stores that are due.
+ * - `store/add <url>`  : register a source store.
  */
 final class StoreController extends Controller
 {
@@ -40,36 +35,7 @@ final class StoreController extends Controller
             return ExitCode::SOFTWARE;
         }
 
-        SyncJob::enqueue(SyncJobTypeEnum::STORE_DISCOVERY, $store->id, null);
-        $this->stdout("Store #{$store->id} ({$externalId}) saved; discovery queued.\n");
-
-        return ExitCode::OK;
-    }
-
-    public function actionDiscover(): int
-    {
-        $intervalHours = (int)(Yii::$app->params['sync.discoveryIntervalHours'] ?? 6);
-        $cutoff = time() - ($intervalHours * 3600);
-
-        $stores = Store::find()
-            ->where(['status' => StoreStatusEnum::ACTIVE->value])
-            ->andWhere(['or', ['last_discovery_at' => null], ['<=', 'last_discovery_at', $cutoff]])
-            ->all();
-
-        $queued = 0;
-        foreach ($stores as $store) {
-            $alreadyQueued = SyncJob::find()
-                ->where(['type' => SyncJobTypeEnum::STORE_DISCOVERY->value, 'store_id' => $store->id, 'status' => 'pending'])
-                ->exists();
-            if ($alreadyQueued) {
-                continue;
-            }
-            SyncJob::enqueue(SyncJobTypeEnum::STORE_DISCOVERY, $store->id, null);
-            $queued++;
-            $this->stdout("Queued discovery for store #{$store->id} ({$store->name})\n");
-        }
-
-        $this->stdout("Queued {$queued} discovery job(s).\n");
+        $this->stdout("Store #{$store->id} ({$externalId}) saved.\n");
 
         return ExitCode::OK;
     }

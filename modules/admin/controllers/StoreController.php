@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace app\modules\admin\controllers;
 
 use app\enums\StoreStatusEnum;
-use app\enums\SyncJobTypeEnum;
 use app\models\Store;
-use app\models\SyncJob;
 use app\modules\admin\models\AddStoreForm;
 use app\modules\admin\models\EditStoreForm;
 use Yii;
@@ -43,7 +41,7 @@ final class StoreController extends Controller
     {
         $model = new AddStoreForm();
         if ($model->load(Yii::$app->request->post()) && ($store = $model->save()) !== null) {
-            Yii::$app->session->setFlash('success', 'Store saved; discovery queued.');
+            Yii::$app->session->setFlash('success', 'Store saved.');
 
             return $this->redirect(['view', 'id' => $store->id]);
         }
@@ -90,15 +88,6 @@ final class StoreController extends Controller
         $store = $this->findStore($id);
         $store->status = StoreStatusEnum::ACTIVE->value;
         $store->save(false, ['status']);
-
-        return $this->redirect(['view', 'id' => $id]);
-    }
-
-    public function actionSyncNow(int $id): Response
-    {
-        $store = $this->findStore($id);
-        SyncJob::enqueue(SyncJobTypeEnum::STORE_DISCOVERY, $store->id, null);
-        Yii::$app->session->setFlash('success', 'Discovery queued.');
 
         return $this->redirect(['view', 'id' => $id]);
     }

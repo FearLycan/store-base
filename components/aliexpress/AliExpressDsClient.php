@@ -120,7 +120,7 @@ final class AliExpressDsClient
      * Fetch the full detail bundle for a product via aliexpress.ds.product.get, normalized to the
      * scraper's contract so {@see ProductImporter} treats both sources identically.
      *
-     * @return array{description:?string, images:array<int,string>, variants:array<int,array>, attributes:array<int,array{name:string,value:?string}>}
+     * @return array{description:?string, images:array<int,string>, variants:array<int,array>, attributes:array<int,array{name:string,value:?string}>, base:array<string,mixed>}
      */
     public function fetch(string $productId): array
     {
@@ -142,13 +142,73 @@ final class AliExpressDsClient
 
         $base = is_array($result['ae_item_base_info_dto'] ?? null) ? $result['ae_item_base_info_dto'] : [];
         $multimedia = is_array($result['ae_multimedia_info_dto'] ?? null) ? $result['ae_multimedia_info_dto'] : [];
+        $images = $this->extractImages($multimedia);
+        $variants = $this->extractVariants($result);
 
         return [
             'description' => $this->extractDescription($base),
-            'images'      => $this->extractImages($multimedia),
-            'variants'    => $this->extractVariants($result),
+            'images'      => $images,
+            'variants'    => $variants,
             'attributes'  => $this->extractAttributes($result),
+            // Core catalog fields (title/price/currency/rating/…), so the importer can build a product
+            // straight from DS when the Affiliate API has no record of it (non-commissionable item).
+            'base'        => $this->extractBase($base, $images, $variants),
         ];
+    }
+
+    /**
+     * Affiliate-shaped core built from DS base info + cheapest variant, for the DS-only import path.
+     * `price_cents` is the lowest variant sale price so the product's headline price matches its "from".
+     *
+     * @param array<int,array> $variants
+     * @return array{title:?string, main_image:?string, currency_code:string, price_cents:?int, original_price_cents:?int, rating_value:?float, orders_count:int, category_id:?string}
+     */
+    private function extractBase(array $base, array $images, array $variants): array
+    {
+        $cheapest = $this->cheapestVariantPrice($variants);
+
+        $rating = null;
+        $rawRating = $base['avg_evaluation_rating'] ?? null;
+        if (is_numeric($rawRating) && (float)$rawRating > 0) {
+            $rating = round(min(5.0, (float)$rawRating), 2);
+        }
+
+        return [
+            'title'                => $this->scalar($base, ['subject']),
+            'main_image'           => $images[0] ?? null,
+            // DS prices come back in the currency we requested above (aliexpress.targetCurrency).
+            'currency_code'        => strtoupper((string)(Yii::$app->params['aliexpress.targetCurrency'] ?? 'USD')) ?: 'USD',
+            'price_cents'          => $cheapest[0],
+            'original_price_cents' => $cheapest[1],
+            'rating_value'         => $rating,
+            'orders_count'         => is_numeric($base['sales_count'] ?? null) ? (int)$base['sales_count'] : 0,
+            'category_id'          => $this->scalar($base, ['category_id']),
+        ];
+    }
+
+    /**
+     * Lowest-priced variant as [sale_cents, original_cents] (prices already in minor units). Returns
+     * [null, null] when no variant carries a parseable price.
+     *
+     * @param array<int,array> $variants
+     * @return array{0:?int,1:?int}
+     */
+    private function cheapestVariantPrice(array $variants): array
+    {
+        $bestSale = null;
+        $bestOriginal = null;
+        foreach ($variants as $variant) {
+            $sale = $variant['price'] ?? null;
+            if (!is_int($sale)) {
+                continue;
+            }
+            if ($bestSale === null || $sale < $bestSale) {
+                $bestSale = $sale;
+                $bestOriginal = is_int($variant['original_price'] ?? null) ? $variant['original_price'] : null;
+            }
+        }
+
+        return [$bestSale, $bestOriginal];
     }
 
     private function extractDescription(array $base): ?string

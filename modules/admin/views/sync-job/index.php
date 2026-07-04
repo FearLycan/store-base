@@ -12,12 +12,12 @@ use yii\helpers\Html;
 /** @var string|null $type */
 
 $this->title = 'Sync queue';
-$badge = ['pending' => 'secondary', 'processing' => 'info', 'done' => 'success', 'failed' => 'danger'];
+$badge = ['pending' => 'secondary', 'processing' => 'info', 'done' => 'success', 'failed' => 'danger', 'skipped' => 'warning'];
 ?>
 <h1 class="h3 mb-3"><?= Html::encode($this->title) ?></h1>
 
 <div class="mb-3 d-flex gap-2">
-    <?php foreach (['' => 'all', 'pending' => 'pending', 'processing' => 'processing', 'done' => 'done', 'failed' => 'failed'] as $key => $label): ?>
+    <?php foreach (['' => 'all', 'pending' => 'pending', 'processing' => 'processing', 'done' => 'done', 'failed' => 'failed', 'skipped' => 'skipped'] as $key => $label): ?>
         <?= Html::a($label, ['index', 'status' => $key], [
             'class' => 'btn btn-sm ' . (($status ?? '') === $key ? 'btn-primary' : 'btn-outline-secondary'),
         ]) ?>

@@ -18,7 +18,6 @@ $this->title = $store->name;
     <div>
         <?= Html::a('Edit', ['edit', 'id' => $store->id], ['class' => 'btn btn-outline-secondary']) ?>
         <?= Html::a('Import products', ['/admin/product/import'], ['class' => 'btn btn-outline-secondary']) ?>
-        <?= Html::a('Sync now', ['sync-now', 'id' => $store->id], ['class' => 'btn btn-outline-primary', 'data-method' => 'post']) ?>
         <?php if ($store->isActive()): ?>
             <?= Html::a('Pause', ['pause', 'id' => $store->id], ['class' => 'btn btn-outline-warning', 'data-method' => 'post']) ?>
         <?php else: ?>

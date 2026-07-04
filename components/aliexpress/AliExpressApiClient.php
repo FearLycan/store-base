@@ -40,7 +40,14 @@ final class AliExpressApiClient
 
         $products = $this->extractProducts($data);
         if ($products === []) {
-            throw new RuntimeException('No products found in AliExpress API response.');
+            // Zero records is permanent, not transient: the item is not in the affiliate program
+            // (non-commissionable), geo-restricted for this account's country, or an invalid id — none
+            // of which yield an affiliate link on retry. Signal the queue to skip rather than retry.
+            throw new ProductNotAffiliableException(
+                "AliExpress product {$itemId} is not available in the affiliate program "
+                . '(not commissionable, or restricted for your affiliate account\'s country) — '
+                . 'the Affiliate API returned no records, so no affiliate link can be generated. Skipped.'
+            );
         }
 
         foreach ($products as $product) {
@@ -250,6 +257,7 @@ final class AliExpressApiClient
             'external_id'      => $this->extractString($product, ['product_id', 'item_id', 'productId']),
             'name'             => $title,
             'url'              => $affiliateUrl,
+            'affiliate_url'    => $affiliateUrl,
             'image'            => $imageUrl,
             'images'           => $this->extractGalleryImages($product, $imageUrl),
             'video_url'        => $this->extractString($product, ['product_video_url']),

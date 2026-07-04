@@ -6,7 +6,7 @@ JAK TO DZIAŁA
 -------------
 Synchronizacja jest kolejkowa i dzieli się na dwie role:
 
-  • PRODUCENCI  (store/discover, product/refresh-prices, review/sync)
+  • PRODUCENCI  (product/refresh-prices, review/sync)
       — tylko WSTAWIAJĄ joby do kolejki (tabela sync_job). Same nie wołają
         AliExpress. Każdy sam sprawdza, co jest "przeterminowane" wg progów
         z config/params.php, więc można je odpalać częściej niż próg — nic
@@ -38,9 +38,8 @@ detale) — bez cookie, bez ręcznej obsługi.
 
   WAŻNE o discovery: oficjalne API AliExpress NIE potrafi wylistować produktów
   danego sprzedawcy (brak filtra po sellerze — sprawdzone empirycznie). Auto-
-  wypełnienie CAŁEGO sklepu wymaga scrapera listingu (store/discover), który
-  potrzebuje świeżego cookie sesji z x5sec i bywa kruchy. Do kuracji nie jest
-  potrzebny — wystarcza ręczne wklejanie w adminie.
+  wypełnienie CAŁEGO sklepu wymagałoby scrapera listingu (świeże cookie x5sec,
+  kruche) — porzucone. Kuracja opiera się na ręcznym wklejaniu w adminie.
 
 KROK 0 — konfiguracja (jednorazowo, config/params-local.php):
   - aliexpress.appKey / appSecret / trackingId   (Affiliate API — core, ceny, linki afiliacyjne)
@@ -80,12 +79,6 @@ NARZĘDZIA / DOBRE PRAKTYKI:
     gdy wołasz w trakcie bana. sync/process ma sleep(2-5s) między jobami (OK);
     verify-sellers ma własny backoff, ale przy dużym katalogu odpalaj cierpliwie.
 
-OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
-  Wklej świeże cookie sesji: admin -> Hub -> Session (musi zawierać x5sec) i zostaw
-  wpis store/discover w cronie. Bez ważnego cookie te joby failują (nieszkodliwie,
-  z jasnym komunikatem). Do czystej kuracji wpis store/discover możesz pominąć.
-
-
 ------------------------------------------------------------------------------
  CRONTAB (serwer produkcyjny, Linux)
 ------------------------------------------------------------------------------
@@ -100,11 +93,6 @@ OPCJONALNIE — auto-zaciąg CAŁEGO sklepu (kruche, niezalecane do kuracji):
 */10 * * * *   cd /var/www/store-base && php yii sync/process >> runtime/logs/sync.log 2>&1
 
 # --- PRODUCENCI (tylko kolejkują joby; worker wyżej je wykonuje) ----------
-
-# Discovery: kolejkuje nowe produkty ze scrapera listingu dla sklepów "due" (próg 6h).
-# OPCJONALNE i KRUCHE: wymaga świeżego cookie sesji (admin -> Hub -> Session, z x5sec).
-# Do czystej kuracji (ręczne wklejanie produktów) ten wpis możesz pominąć.
-0 * * * *      cd /var/www/store-base && php yii store/discover >> runtime/logs/store.log 2>&1
 
 # Ceny: kolejkuje odświeżenie ceny/dostępności dla produktów starszych niż 1 dzień.
 # Raz na dobę (03:15).
@@ -134,7 +122,6 @@ Na Windows nie ma crona — użyj Harmonogramu zadań (Task Scheduler) i wołaj
 te same komendy przez kontener, np.:
 
   docker exec store-base php yii sync/process
-  docker exec store-base php yii store/discover
   docker exec store-base php yii product/refresh-prices
   docker exec store-base php yii review/sync
   docker exec store-base php yii ds/refresh-token
@@ -154,7 +141,7 @@ sync.batchSize w params, albo podaj większy limit ręcznie:
  KOMENDY RĘCZNE / JEDNORAZOWE (NIE w cronie)
 ==============================================================================
 
-# Dodaj nowy sklep źródłowy i zakolejkuj jego pierwsze discovery:
+# Dodaj nowy sklep źródłowy:
 docker exec store-base php yii store/add "https://pl.aliexpress.com/store/1102516804" "Nazwa sklepu"
 
 # Reimport detali WSZYSTKICH istniejących produktów przez DS API

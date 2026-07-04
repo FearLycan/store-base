@@ -37,12 +37,21 @@ final class ProductImporter
      */
     public function import(Store $store, string $externalId, bool $verifySeller = true): Product
     {
-        $core = $this->apiClient->fetchProductByItemId($externalId);
-        if ($verifySeller) {
+        // Affiliate API is the primary core (price + affiliate link). When it has no record of the
+        // product (non-commissionable / geo-restricted), we still import it from the DS API below —
+        // just without an affiliate link. Better an extra catalog entry than none.
+        $core = $this->tryAffiliateCore($externalId);
+        if ($core !== null && $verifySeller) {
             $this->assertBelongsToStore($store, $externalId, $core);
         }
 
         $detail = $this->fetchDetail($externalId);
+
+        if ($core === null) {
+            // No affiliate core — build it from the DS detail we just fetched (throws to skip if DS
+            // has nothing either, i.e. the product genuinely doesn't exist anywhere).
+            $core = $this->coreFromDs($externalId, $detail);
+        }
 
         $transaction = Yii::$app->db->beginTransaction();
         try {
@@ -62,7 +71,9 @@ final class ProductImporter
                 ?? $product->category_id;
             $product->title         = $core['name'] ?? $product->title;
             $product->product_url   = $core['url'] ?? $product->product_url;
-            $product->affiliate_url = $core['url'] ?? $product->affiliate_url;
+            // DS-only products carry an explicit null affiliate_url (no commissionable link); the
+            // `?? existing` keeps any link a product already had from an earlier affiliable import.
+            $product->affiliate_url = $core['affiliate_url'] ?? $product->affiliate_url;
             $product->main_image    = $core['image'] ?? $product->main_image;
             $product->video_url     = $core['video_url'] ?? $product->video_url;
             $product->currency_code = strtoupper((string)($core['currency_code'] ?? 'USD')) ?: 'USD';
@@ -111,6 +122,67 @@ final class ProductImporter
     }
 
     /**
+     * The Affiliate API core, or null when the product is not in the affiliate program (the API
+     * returns zero records). Null is the caller's cue to fall back to a DS-only import.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function tryAffiliateCore(string $externalId): ?array
+    {
+        try {
+            return $this->apiClient->fetchProductByItemId($externalId);
+        } catch (ProductNotAffiliableException $e) {
+            Yii::info("Affiliate API has no record for {$externalId}; importing from DS only (no affiliate link).", __METHOD__);
+
+            return null;
+        }
+    }
+
+    /**
+     * Build an affiliate-shaped core from the DS detail bundle, for products the Affiliate API doesn't
+     * carry. `url` is the plain product page (GoController redirects there when affiliate_url is null),
+     * and `affiliate_url` is explicitly null — no commission, but still a usable catalog entry.
+     * Throws {@see ProductNotAffiliableException} when DS returned nothing either, so the queue skips it.
+     *
+     * @param array{base?:array<string,mixed>} $detail
+     * @return array<string,mixed>
+     */
+    private function coreFromDs(string $externalId, array $detail): array
+    {
+        $base = $detail['base'] ?? null;
+        if (!is_array($base) || ($base['title'] ?? null) === null) {
+            throw new ProductNotAffiliableException(
+                "AliExpress product {$externalId} is not in the affiliate program and the Dropshipping "
+                . 'API returned no usable data — nothing to import. Skipped.'
+            );
+        }
+
+        $ratingValue = $base['rating_value'] ?? null;
+
+        return [
+            'external_id'          => $externalId,
+            'name'                 => $base['title'],
+            'url'                  => 'https://www.aliexpress.com/item/' . $externalId . '.html',
+            'affiliate_url'        => null,
+            'image'                => $base['main_image'] ?? null,
+            'images'               => $detail['images'] ?? [],
+            'video_url'            => null,
+            'currency_code'        => $base['currency_code'] ?? 'USD',
+            'price_cents'          => $base['price_cents'] ?? null,
+            'original_price_cents' => $base['original_price_cents'] ?? null,
+            'availability'         => null,
+            'rating_value'         => $ratingValue,
+            'rating_scale_max'     => $ratingValue !== null ? 5.0 : null,
+            'orders_count'         => $base['orders_count'] ?? 0,
+            'shop_id'              => null,
+            'category_l1_id'       => null,
+            'category_l1_name'     => null,
+            'category_l2_id'       => null,
+            'category_l2_name'     => null,
+        ];
+    }
+
+    /**
      * Guard against the store listing smuggling in another seller's product (AliExpress "Choice"
      * cross-sell): the Affiliate `shop_id` is the authoritative seller, and for genuine store items
      * it equals the store's `external_store_id` (the /store/<id> number). A mismatch means this item
@@ -155,7 +227,10 @@ final class ProductImporter
     /** Lightweight refresh: only re-pull price/currency/availability/rating from the official API. */
     public function refreshPrice(Product $product): void
     {
-        $core = $this->apiClient->fetchProductByItemId($product->external_id);
+        // Mirror import(): prefer the Affiliate core, fall back to DS for non-commissionable products
+        // so their price/availability still refresh instead of the job perpetually skipping.
+        $core = $this->tryAffiliateCore($product->external_id)
+            ?? $this->coreFromDs($product->external_id, $this->fetchDetail($product->external_id));
         $product->currency_code = strtoupper((string)($core['currency_code'] ?? $product->currency_code)) ?: $product->currency_code;
         $oldPrice = $product->price;
         $product->price = isset($core['price_cents']) && is_numeric($core['price_cents']) ? (int)$core['price_cents'] : $product->price;
