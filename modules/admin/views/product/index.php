@@ -11,6 +11,7 @@ use yii\helpers\Url;
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var int|null $storeId */
+/** @var array<int,string> $stores */
 /** @var string $q */
 /** @var string $status */
 
@@ -57,8 +58,9 @@ JS);
     'q' => $q,
     'status' => $status,
     'statuses' => $statusOptions,
+    'stores' => $stores,
+    'storeId' => $storeId,
     'placeholder' => 'Search products by title…',
-    'hidden' => $storeId !== null ? ['store_id' => $storeId] : [],
 ]) ?>
 
 <?= GridView::widget([
@@ -66,7 +68,8 @@ JS);
     'tableOptions' => ['class' => 'table table-striped table-hover align-middle'],
     'columns' => [
         [
-            'label' => '',
+            'attribute' => 'main_image',
+            'label' => 'Image',
             'format' => 'raw',
             'value' => static fn (Product $p): string => $p->main_image
                 ? Html::img($p->main_image, ['style' => 'width:48px;height:48px;object-fit:cover;border-radius:6px'])
@@ -84,14 +87,17 @@ JS);
         'orders_count',
         'review_count',
         [
+            'attribute' => 'category',
             'label' => 'Category',
             'value' => static fn (Product $p): string => $p->category->name ?? '—',
         ],
         [
+            'attribute' => 'store',
             'label' => 'Store',
             'value' => static fn (Product $p): string => $p->store->name ?? '—',
         ],
         [
+            'attribute' => 'status',
             'label' => 'Status',
             'format' => 'raw',
             'value' => static function (Product $p): string {
@@ -114,9 +120,14 @@ JS);
             },
         ],
         [
+            'attribute' => 'created_at',
+            'label' => 'Created',
+            'value' => static fn (Product $p): string => date('Y-m-d H:i', $p->created_at),
+        ],
+        /*[
             'class' => yii\grid\ActionColumn::class,
             'template' => '{view}',
             'urlCreator' => static fn ($action, Product $p) => ['view', 'id' => $p->id],
-        ],
+        ],*/
     ],
 ]) ?>

@@ -16,14 +16,18 @@ use yii\helpers\Url;
  * @var array<string,string> $statuses value => label options (empty to hide the dropdown)
  * @var string $placeholder search input placeholder
  * @var array<string,int|string> $hidden extra query params to preserve (e.g. store_id)
+ * @var array<int,string> $stores id => name options for a store filter (empty to hide it)
+ * @var int|string|null $storeId currently selected store id ('' / null = all)
  */
 
 $statuses ??= [];
 $hidden ??= [];
+$stores ??= [];
+$storeId ??= null;
 $placeholder ??= 'Search by name…';
-$hasFilter = trim($q) !== '' || $status !== '';
+$hasFilter = trim($q) !== '' || $status !== '' || ($storeId !== null && (string)$storeId !== '');
 ?>
-<form method="get" action="<?= Html::encode(Url::to([$action])) ?>" class="row g-2 align-items-center mb-3">
+<form method="get" action="<?= Html::encode(Url::to([$action])) ?>" class="row g-2 align-items-center mb-3 js-autofilter">
     <?php foreach ($hidden as $name => $value): ?>
         <?= Html::hiddenInput($name, (string)$value) ?>
     <?php endforeach; ?>
@@ -34,6 +38,14 @@ $hasFilter = trim($q) !== '' || $status !== '';
             'aria-label' => 'Search by name',
         ]) ?>
     </div>
+    <?php if ($stores !== []): ?>
+        <div class="col-6 col-sm-auto">
+            <?= Html::dropDownList('store_id', $storeId, ['' => 'All stores'] + $stores, [
+                'class' => 'form-select',
+                'aria-label' => 'Filter by store',
+            ]) ?>
+        </div>
+    <?php endif; ?>
     <?php if ($statuses !== []): ?>
         <div class="col-6 col-sm-auto">
             <?= Html::dropDownList('status', $status, ['' => 'All statuses'] + $statuses, [
@@ -42,7 +54,7 @@ $hasFilter = trim($q) !== '' || $status !== '';
             ]) ?>
         </div>
     <?php endif; ?>
-    <div class="col-auto">
+    <div class="col-auto js-autofilter-submit">
         <button type="submit" class="btn btn-primary">Filter</button>
     </div>
     <?php if ($hasFilter): ?>

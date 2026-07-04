@@ -18,7 +18,7 @@ final class StoreController extends Controller
 {
     public function actionIndex(?string $q = null, ?string $status = null): string
     {
-        $query = Store::find()->orderBy(['id' => SORT_DESC]);
+        $query = Store::find();
 
         $q = trim((string)$q);
         if ($q !== '') {
@@ -31,7 +31,10 @@ final class StoreController extends Controller
         }
 
         return $this->render('index', [
-            'dataProvider' => new ActiveDataProvider(['query' => $query]),
+            'dataProvider' => new ActiveDataProvider([
+                'query' => $query,
+                'sort' => ['defaultOrder' => ['id' => SORT_DESC]],
+            ]),
             'q' => $q,
             'status' => $status,
         ]);
@@ -69,7 +72,8 @@ final class StoreController extends Controller
         return $this->render('view', [
             'store' => $store,
             'products' => new ActiveDataProvider([
-                'query' => $store->getProducts()->orderBy(['id' => SORT_DESC]),
+                'query' => $store->getProducts(),
+                'sort' => ['defaultOrder' => ['id' => SORT_DESC]],
             ]),
         ]);
     }

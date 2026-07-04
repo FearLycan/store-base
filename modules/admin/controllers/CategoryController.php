@@ -30,7 +30,7 @@ final class CategoryController extends Controller
 
     public function actionIndex(?string $q = null, ?string $status = null): string
     {
-        $query = Category::find()->orderBy(['level' => SORT_ASC, 'name' => SORT_ASC]);
+        $query = Category::find();
 
         $q = trim((string)$q);
         if ($q !== '') {
@@ -46,6 +46,7 @@ final class CategoryController extends Controller
             'dataProvider' => new ActiveDataProvider([
                 'query' => $query,
                 'pagination' => ['pageSize' => 50],
+                'sort' => ['defaultOrder' => ['level' => SORT_ASC, 'name' => SORT_ASC]],
             ]),
             'q' => $q,
             'status' => $status,

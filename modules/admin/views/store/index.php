@@ -58,10 +58,10 @@ foreach (StoreStatusEnum::cases() as $case) {
             'attribute' => 'last_discovery_at',
             'value' => static fn (Store $s): string => $s->last_discovery_at ? date('Y-m-d H:i', $s->last_discovery_at) : '—',
         ],
-        [
+        /*[
             'class' => yii\grid\ActionColumn::class,
             'template' => '{view}',
             'urlCreator' => static fn ($action, Store $s) => ['view', 'id' => $s->id],
-        ],
+        ],*/
     ],
 ]) ?>

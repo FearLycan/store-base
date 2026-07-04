@@ -29,6 +29,26 @@ $this->registerJs(<<<'JS'
 })();
 JS);
 
+// Auto-submitting list filters: any GET form tagged `.js-autofilter` re-runs the
+// moment a select changes (or a search box loses focus / Enter is pressed), so the
+// list reflows without an explicit "Filter" click. Selects submit instantly; the
+// redundant submit button is hidden when JS is available.
+$this->registerJs(<<<'JS'
+(function () {
+    function submit(form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+    document.querySelectorAll('form.js-autofilter').forEach(function (form) {
+        form.querySelectorAll('select').forEach(function (sel) {
+            sel.addEventListener('change', function () { submit(form); });
+        });
+        var search = form.querySelector('input[type=search]');
+        if (search) {
+            search.addEventListener('change', function () { submit(form); });
+        }
+        form.querySelectorAll('.js-autofilter-submit').forEach(function (btn) { btn.hidden = true; });
+    });
+})();
+JS);
+
 $burger = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 $external = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
 ?>

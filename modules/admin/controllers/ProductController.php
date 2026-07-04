@@ -7,6 +7,7 @@ namespace app\modules\admin\controllers;
 use app\enums\ProductStatusEnum;
 use app\enums\SyncJobTypeEnum;
 use app\models\Product;
+use app\models\Store;
 use app\models\SyncJob;
 use app\modules\admin\models\ImportProductForm;
 use Yii;
@@ -33,9 +34,13 @@ final class ProductController extends Controller
 
     public function actionIndex(?int $store_id = null, ?string $q = null, ?string $status = null): string
     {
-        $query = Product::find()->with('store')->orderBy(['id' => SORT_DESC]);
+        // joinWith (not with) so we can both ORDER BY and filter on the related
+        // store/category; it still eager-loads them. product, store and category
+        // share `id`/`status`/`name` column names, so any reference to those must
+        // be table-qualified below to avoid an ambiguous-column SQL error.
+        $query = Product::find()->joinWith(['store', 'category']);
         if ($store_id !== null) {
-            $query->andWhere(['store_id' => $store_id]);
+            $query->andWhere(['product.store_id' => $store_id]);
         }
 
         $q = trim((string)$q);
@@ -46,12 +51,45 @@ final class ProductController extends Controller
 
         $status = (string)$status;
         if ($status !== '' && ProductStatusEnum::tryFrom($status) !== null) {
-            $query->andWhere(['status' => $status]);
+            $query->andWhere(['product.status' => $status]);
         }
 
         return $this->render('index', [
-            'dataProvider' => new ActiveDataProvider(['query' => $query]),
+            'dataProvider' => new ActiveDataProvider([
+                'query' => $query,
+                'sort' => [
+                    'defaultOrder' => ['id' => SORT_DESC],
+                    'attributes' => [
+                        'id' => [
+                            'asc'  => ['product.id' => SORT_ASC],
+                            'desc' => ['product.id' => SORT_DESC],
+                        ],
+                        'main_image', 'title', 'price', 'orders_count', 'review_count',
+                        'category' => [
+                            'asc'  => ['category.name' => SORT_ASC],
+                            'desc' => ['category.name' => SORT_DESC],
+                            'label' => 'Category',
+                        ],
+                        'store' => [
+                            'asc'  => ['store.name' => SORT_ASC],
+                            'desc' => ['store.name' => SORT_DESC],
+                            'label' => 'Store',
+                        ],
+                        'status' => [
+                            'asc'  => ['product.status' => SORT_ASC],
+                            'desc' => ['product.status' => SORT_DESC],
+                            'label' => 'Status',
+                        ],
+                        'created_at' => [
+                            'asc'  => ['product.created_at' => SORT_ASC],
+                            'desc' => ['product.created_at' => SORT_DESC],
+                            'label' => 'Created',
+                        ],
+                    ],
+                ],
+            ]),
             'storeId' => $store_id,
+            'stores' => Store::find()->orderBy(['name' => SORT_ASC])->select('name')->indexBy('id')->column(),
             'q' => $q,
             'status' => $status,
         ]);

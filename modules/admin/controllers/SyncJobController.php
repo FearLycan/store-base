@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\modules\admin\controllers;
 
 use app\enums\SyncJobStatusEnum;
+use app\enums\SyncJobTypeEnum;
 use app\models\SyncJob;
 use Yii;
 use yii\data\ActiveDataProvider;
@@ -16,18 +17,35 @@ final class SyncJobController extends Controller
 {
     public function actionIndex(?string $status = null, ?string $type = null): string
     {
-        $query = SyncJob::find()->orderBy(['id' => SORT_DESC]);
-        if ($status !== null && $status !== '') {
+        $status = (string)$status;
+        $type = (string)$type;
+
+        $query = SyncJob::find();
+        if ($status !== '' && SyncJobStatusEnum::tryFrom($status) !== null) {
             $query->andWhere(['status' => $status]);
         }
-        if ($type !== null && $type !== '') {
+        if ($type !== '' && SyncJobTypeEnum::tryFrom($type) !== null) {
             $query->andWhere(['type' => $type]);
         }
 
+        $statusOptions = [];
+        foreach (SyncJobStatusEnum::cases() as $case) {
+            $statusOptions[$case->value] = $case->value;
+        }
+        $typeOptions = [];
+        foreach (SyncJobTypeEnum::cases() as $case) {
+            $typeOptions[$case->value] = $case->value;
+        }
+
         return $this->render('index', [
-            'dataProvider' => new ActiveDataProvider(['query' => $query]),
+            'dataProvider' => new ActiveDataProvider([
+                'query' => $query,
+                'sort' => ['defaultOrder' => ['id' => SORT_DESC]],
+            ]),
             'status' => $status,
             'type' => $type,
+            'statusOptions' => $statusOptions,
+            'typeOptions' => $typeOptions,
         ]);
     }
 

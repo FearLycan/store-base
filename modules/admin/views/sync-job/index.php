@@ -5,24 +5,43 @@ declare(strict_types=1);
 use app\models\SyncJob;
 use yii\grid\GridView;
 use yii\helpers\Html;
+use yii\helpers\Url;
 
 /** @var yii\web\View $this */
 /** @var yii\data\ActiveDataProvider $dataProvider */
-/** @var string|null $status */
-/** @var string|null $type */
+/** @var string $status */
+/** @var string $type */
+/** @var array<string,string> $statusOptions */
+/** @var array<string,string> $typeOptions */
 
 $this->title = 'Sync queue';
 $badge = ['pending' => 'secondary', 'processing' => 'info', 'done' => 'success', 'failed' => 'danger', 'skipped' => 'warning'];
+$hasFilter = $status !== '' || $type !== '';
 ?>
 <h1 class="h3 mb-3"><?= Html::encode($this->title) ?></h1>
 
-<div class="mb-3 d-flex gap-2">
-    <?php foreach (['' => 'all', 'pending' => 'pending', 'processing' => 'processing', 'done' => 'done', 'failed' => 'failed', 'skipped' => 'skipped'] as $key => $label): ?>
-        <?= Html::a($label, ['index', 'status' => $key], [
-            'class' => 'btn btn-sm ' . (($status ?? '') === $key ? 'btn-primary' : 'btn-outline-secondary'),
+<form method="get" action="<?= Html::encode(Url::to(['index'])) ?>" class="row g-2 align-items-center mb-3 js-autofilter">
+    <div class="col-6 col-sm-auto">
+        <?= Html::dropDownList('status', $status, ['' => 'All statuses'] + $statusOptions, [
+            'class' => 'form-select',
+            'aria-label' => 'Filter by status',
         ]) ?>
-    <?php endforeach; ?>
-</div>
+    </div>
+    <div class="col-6 col-sm-auto">
+        <?= Html::dropDownList('type', $type, ['' => 'All types'] + $typeOptions, [
+            'class' => 'form-select',
+            'aria-label' => 'Filter by type',
+        ]) ?>
+    </div>
+    <div class="col-auto js-autofilter-submit">
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
+    <?php if ($hasFilter): ?>
+        <div class="col-auto">
+            <?= Html::a('Clear', ['index'], ['class' => 'btn btn-outline-secondary']) ?>
+        </div>
+    <?php endif; ?>
+</form>
 
 <?= GridView::widget([
     'dataProvider' => $dataProvider,
