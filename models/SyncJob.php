@@ -8,6 +8,7 @@ use app\enums\SyncJobStatusEnum;
 use app\enums\SyncJobTypeEnum;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
+use yii\db\Expression;
 
 /**
  * @property int $id
@@ -68,7 +69,8 @@ class SyncJob extends ActiveRecord
         $candidate = self::find()
             ->where(['status' => SyncJobStatusEnum::PENDING->value])
             ->andWhere(['<=', 'available_at', time()])
-            ->orderBy(['id' => SORT_ASC])
+            ->orderBy(self::priorityExpression())
+            ->addOrderBy(['id' => SORT_ASC])
             ->one();
         if ($candidate === null) {
             return null;
@@ -86,6 +88,20 @@ class SyncJob extends ActiveRecord
         $candidate->refresh();
 
         return $candidate;
+    }
+
+    /**
+     * SQL `CASE` mapping each job type to its {@see SyncJobTypeEnum::queuePriority()} weight, so the
+     * queue can be ordered by priority then id. Built from the enum (values are fixed, injection-safe).
+     */
+    private static function priorityExpression(): Expression
+    {
+        $cases = '';
+        foreach (SyncJobTypeEnum::cases() as $case) {
+            $cases .= sprintf(" WHEN '%s' THEN %d", $case->value, $case->queuePriority());
+        }
+
+        return new Expression('CASE [[type]]' . $cases . ' ELSE 99 END');
     }
 
     public function markDone(): void

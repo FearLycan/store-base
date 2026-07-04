@@ -83,20 +83,31 @@ final class SyncJobDispatcher
         }
         SyncJob::enqueue(SyncJobTypeEnum::PRODUCT_REVIEWS, $store->id, $product->id, ['external_id' => $externalId]);
 
-        // New products are imported as DRAFT and only go live once their title is humanised.
+        // Publish inline: humanise the title and flip draft -> active in this same job, instead of
+        // enqueuing a separate TITLE_REWRITE. A dedicated publish job would sort *after* the whole
+        // import backlog (higher id) and starve — inline makes a new product go live in one job.
         if ($product->display_title === null || $product->display_title === '') {
-            SyncJob::enqueue(SyncJobTypeEnum::TITLE_REWRITE, $store->id, $product->id, ['external_id' => $externalId]);
+            $this->applyTitleAndPublish($product);
         }
+    }
+
+    /**
+     * Legacy TITLE_REWRITE handler, kept so jobs enqueued before publishing moved inline still drain.
+     * New imports publish inline via {@see importProduct}; this only reaches the queue's backlog.
+     */
+    private function rewriteTitle(SyncJob $job): void
+    {
+        $product = Product::findOne((int)$job->product_id) ?? throw new RuntimeException('Product not found.');
+        $this->applyTitleAndPublish($product);
     }
 
     /**
      * Rewrites the raw marketplace title into a human-friendly display_title, derives the slug from
      * it, and publishes the product (draft -> active). Falls back to a cheap offline cleanup when the
-     * LLM is unavailable so the product still goes live.
+     * LLM is unavailable so the product still goes live. Idempotent — safe to re-run on a live product.
      */
-    private function rewriteTitle(SyncJob $job): void
+    private function applyTitleAndPublish(Product $product): void
     {
-        $product = Product::findOne((int)$job->product_id) ?? throw new RuntimeException('Product not found.');
         $raw = (string)$product->title;
 
         try {

@@ -41,8 +41,11 @@ $params = [
     'sync.discoveryIntervalHours'    => 6,
     'sync.priceRefreshIntervalDays'  => 1,
     'sync.reviewRefreshIntervalDays' => 3,
-    'sync.batchSize'                 => 20,
     'sync.maxAttempts'               => 5,
+    // sync/process (no explicit limit) drains the queue until empty or this budget elapses. The
+    // MysqlMutex serialises runs, so a run may safely span many cron ticks (overlaps just skip).
+    // ~55 min keeps one run well inside an hour while staying near-continuous under a 5-min cron.
+    'sync.timeBudgetSeconds'         => 3300,
 
     // --- Site / niche identity (per deployment) ---
     'site.name'  => 'Store Base',

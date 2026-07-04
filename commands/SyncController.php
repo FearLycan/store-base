@@ -6,6 +6,7 @@ namespace app\commands;
 
 use app\components\aliexpress\NonRetryableJobException;
 use app\components\aliexpress\SyncJobDispatcher;
+use app\enums\SyncJobTypeEnum;
 use app\models\SyncJob;
 use Throwable;
 use Yii;
@@ -18,6 +19,11 @@ use yii\console\ExitCode;
  */
 final class SyncController extends Controller
 {
+    /**
+     * @param int|null $limit Max jobs to process this run. Null (the cron default) drains the queue
+     *                        until it is empty or the time budget runs out, so throughput is bounded
+     *                        by real work — not by how often cron fires. The mutex keeps it single.
+     */
     public function actionProcess(?int $limit = null): int
     {
         // Only one worker at a time: overlapping cron runs would claim jobs in parallel and
@@ -38,15 +44,17 @@ final class SyncController extends Controller
 
     private function processQueue(?int $limit): int
     {
-        $limit = $limit ?? (int)(Yii::$app->params['sync.batchSize'] ?? 20);
         $maxAttempts = (int)(Yii::$app->params['sync.maxAttempts'] ?? 5);
+        // How long a single run may keep draining. The mutex means overlapping cron ticks skip while
+        // this runs, so it can safely span many cron intervals; it exits early when the queue empties.
+        $deadline = time() + (int)(Yii::$app->params['sync.timeBudgetSeconds'] ?? 3300);
         $dispatcher = new SyncJobDispatcher();
         $processed = 0;
 
-        for ($i = 0; $i < $limit; $i++) {
+        while (($limit === null || $processed < $limit) && time() < $deadline) {
             $job = SyncJob::claimNext();
             if ($job === null) {
-                break;
+                break; // queue drained
             }
 
             try {
@@ -65,7 +73,11 @@ final class SyncController extends Controller
                 Yii::error("SyncJob #{$job->id} failed: {$e->getMessage()}", __METHOD__);
             }
 
-            sleep(random_int(3, 6)); // rate limit between external calls
+            // Rate limit only jobs that actually hit the AliExpress affiliate gateway; LLM (title) and
+            // mtop (reviews) jobs go to other hosts and would just waste seconds sleeping here.
+            if (SyncJobTypeEnum::from($job->type)->hitsAffiliateApi()) {
+                sleep(random_int(2, 4));
+            }
         }
 
         $this->stdout("Processed {$processed} job(s).\n");

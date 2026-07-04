@@ -25,8 +25,22 @@ Progi cadence (config/params.php):
   sync.discoveryIntervalHours    = 6    # jak często sklep jest "due" na discovery
   sync.priceRefreshIntervalDays  = 1    # po ilu dniach cena jest "stale"
   sync.reviewRefreshIntervalDays = 3    # po ilu dniach recenzje są "stale"
-  sync.batchSize                 = 20   # ile jobów bierze jeden sync/process
+  sync.timeBudgetSeconds         = 3300 # jak długo JEDEN sync/process drenuje kolejkę (potem exit)
   sync.maxAttempts               = 5    # po ilu próbach job idzie w "failed"
+
+PRZEPUSTOWOŚĆ (jak worker teraz drenuje):
+  • sync/process bez limitu leci w PĘTLI aż kolejka pusta albo minie timeBudgetSeconds
+    (~55 min). Mutex (GET_LOCK) trzyma jednego workera — nakładające się crony po prostu
+    wychodzą, więc jeden run może obejmować wiele ticków crona. Przepustowość zależy od
+    realnej pracy, nie od granulacji crona.
+  • Sleep rate-limitu (2–4 s) TYLKO po jobach bijących w afiliacyjne API (product_detail,
+    price_refresh). title_rewrite (LLM) i product_reviews (mtop) idą bez sleepu.
+  • Kolejność claimNext: priorytet typu (title_rewrite -> price_refresh -> product_reviews
+    -> product_detail -> store_discovery), potem id. Publikacja draftów nie jest już głodzona
+    przez backlog importu.
+  • Publikacja tytułu (draft -> active) dzieje się INLINE w jobie product_detail — nowy
+    produkt idzie live w jednym jobie. Osobny job title_rewrite pozostaje tylko dla obsługi
+    już zakolejkowanych z czasów sprzed tej zmiany.
 
 
 ------------------------------------------------------------------------------
@@ -60,9 +74,10 @@ KROK 2 — wklej produkty sprzedawcy:
   "trusted" — ręczny wybór przechodzi bez weryfikacji sprzedawcy (guard off).
 
 KROK 3 — przepuść kolejkę (albo po prostu poczekaj na crona sync/process):
-    php yii sync/process 100
-  Produkty wchodzą jako draft -> job TITLE_REWRITE humanizuje tytuł i publikuje
-  (draft -> active). Od tego momentu nic już nie klikasz.
+    php yii sync/process 100      # limit N = przetwórz najwyżej N jobów i wyjdź
+    php yii sync/process          # bez limitu = drenuj aż pusto / do timeBudgetSeconds
+  Produkt wchodzi jako draft i JESZCZE w tym samym jobie product_detail dostaje
+  zhumanizowany tytuł i publikację (draft -> active). Od tego momentu nic nie klikasz.
 
 KROK 4 — utrzymanie dzieje się samo (crony niżej): refresh-prices (dziennie),
   review/sync (co 2 dni), sitemap (dziennie).
@@ -76,7 +91,7 @@ NARZĘDZIA / DOBRE PRAKTYKI:
   - Guard shop_id: automatyczne discovery odrzuca obcych sprzedawców ("Choice"
     cross-sell); ręczne wklejenie jest zaufane i przechodzi wszystko.
   - Rate limit Affiliate: "ApiCallLimit ... ban 1s" przy seriach; przedłuża się,
-    gdy wołasz w trakcie bana. sync/process ma sleep(2-5s) między jobami (OK);
+    gdy wołasz w trakcie bana. sync/process usypia 2-4 s tylko po jobach afiliacyjnych;
     verify-sellers ma własny backoff, ale przy dużym katalogu odpalaj cierpliwie.
 
 ------------------------------------------------------------------------------
@@ -129,10 +144,10 @@ te same komendy przez kontener, np.:
 
 Do szybkiego testu możesz po prostu odpalać `sync/process` ręcznie w pętli.
 
-Uwaga wydajnościowa: jeden `sync/process` bierze 20 jobów i czeka 2–5 s między
-każdym (rate-limit do AE), więc po dużym discovery (sklep potrafi mieć setki
-produktów) kolejka drenuje się ~120 jobów/h. Żeby przyspieszyć, albo zwiększ
-sync.batchSize w params, albo podaj większy limit ręcznie:
+Uwaga wydajnościowa: `sync/process` bez limitu drenuje kolejkę w pętli aż do pustej
+(albo do sync.timeBudgetSeconds), a sleep rate-limitu obowiązuje tylko po jobach
+afiliacyjnych — więc po dużym imporcie kolejka schodzi ciągle, a nie porcjami 20/tick.
+Żeby ograniczyć jeden przebieg, podaj limit ręcznie:
 
   docker exec store-base php yii sync/process 100
 
