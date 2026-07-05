@@ -567,8 +567,14 @@ foreach ($product->reviews as $r) {
         $meta[] = ['p' => $imgIdx !== [], 't' => mb_strtolower($content), 'r' => $rating, 'd' => (int) $r->reviewed_at];
     }
     $revTotal = count($cards);
-    $initialShown = 6;
-    $reviewsCfg = ['images' => $allImages, 'captions' => $captions, 'meta' => $meta, 'initial' => $initialShown];
+    $reviewsCfg = [
+        'productId' => (int) $product->id,
+        'images'    => $allImages,
+        'captions'  => $captions,
+        'total'     => $revTotal,
+        'hasMore'   => $revTotal >= 20, // baseline is capped at 20; AE has more to page through
+        'ssrHtml'   => $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]),
+    ];
     ?>
     <section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
         <h2 class="mb-4 text-xl font-bold">Customer reviews</h2>
@@ -585,8 +591,8 @@ foreach ($product->reviews as $r) {
             <div class="hidden w-px self-stretch bg-gray-100 sm:block"></div>
             <div class="min-w-0 flex-1">
                 <?php for ($s = 5; $s >= 1; $s--): $pct = $revTotal ? round($dist[$s] / $revTotal * 100) : 0; ?>
-                    <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('star', <?= $s ?>) }"
-                            @click="setFilter('star', <?= $s ?>)"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
+                    <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('<?= $s ?>') }"
+                            @click="setFilter('<?= $s ?>')"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
                             aria-label="Show <?= $dist[$s] ?> <?= $s ?>-star review<?= $dist[$s] === 1 ? '' : 's' ?>">
                         <span class="w-3 flex-none text-right tabular-nums text-gray-500"><?= $s ?></span>
                         <span class="text-amber-400">★</span>
@@ -621,25 +627,27 @@ foreach ($product->reviews as $r) {
             </div>
         <?php endif; ?>
 
-        <?php if ($impressions || $photoCount): ?>
-            <!-- Filters: all / with photos / impression keywords -->
+        <?php $imgChipCount = (int) ($product->review_image_count ?? 0); ?>
+        <?php if ($impressions || $imgChipCount): ?>
+            <!-- Filters: all / with photos / impression keywords. Each emits an AE filter token;
+                 Alpine fetches /product/<id>/reviews?filter=<token> and swaps the list in. -->
             <div class="mt-6 flex flex-wrap gap-2">
                 <button type="button" class="rev-chip" :class="{ 'is-active': isActive('all') }" @click="setFilter('all')">All</button>
-                <?php if ($photoCount): ?>
-                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('photos') }" @click="setFilter('photos')">
+                <?php if ($imgChipCount): ?>
+                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('image') }" @click="setFilter('image')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
                             <rect x="3" y="3" width="18" height="18" rx="2"/>
                             <circle cx="9" cy="9" r="2"/>
                             <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>
                         </svg>
-                        With photos <span class="rev-chip-num"><?= $photoCount ?></span>
+                        With photos <span class="rev-chip-num"><?= $imgChipCount ?></span>
                     </button>
                 <?php endif; ?>
-                <?php foreach ($impressions as $imp): $label = trim((string) ($imp['label'] ?? ''));
-                    if ($label === '') {
+                <?php foreach ($impressions as $imp): $label = trim((string) ($imp['label'] ?? '')); $impId = trim((string) ($imp['id'] ?? ''));
+                    if ($label === '' || $impId === '') {
                         continue;
                     } ?>
-                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>) }" @click="setFilter('kw', <?= Html::encode(Json::encode(mb_strtolower($label))) ?>)">
+                    <button type="button" class="rev-chip" :class="{ 'is-active': isActive('impression:<?= Html::encode($impId) ?>') }" @click="setFilter('impression:<?= Html::encode($impId) ?>')">
                         <?= Html::encode($label) ?><?php if ((int) ($imp['num'] ?? 0) > 0): ?> <span class="rev-chip-num"><?= (int) $imp['num'] ?></span><?php endif; ?>
                     </button>
                 <?php endforeach; ?>
@@ -648,7 +656,7 @@ foreach ($product->reviews as $r) {
 
         <!-- Sort + count -->
         <div class="mt-6 flex items-center justify-between gap-3">
-            <span class="text-sm text-gray-500"><span x-text="ordered.length"></span> review<span x-show="ordered.length !== 1">s</span></span>
+            <span class="text-sm text-gray-500"><span x-text="total"></span> review<span x-show="total !== 1">s</span></span>
             <select x-model="sort" class="filter-select" aria-label="Sort reviews">
                 <option value="recent">Most recent</option>
                 <option value="high">Highest rating</option>
@@ -656,46 +664,16 @@ foreach ($product->reviews as $r) {
             </select>
         </div>
 
-        <!-- Review list -->
-        <div class="mt-3.5 flex flex-col gap-3.5">
-            <?php foreach ($cards as $i => $c): ?>
-                <article x-cloak :style="cardStyle(<?= $i ?>)" class="rev-card">
-                    <div class="flex items-start gap-3">
-                        <span class="rev-avatar" style="background-color:<?= Html::encode($c['color']) ?>"><?= Html::encode($c['initial']) ?></span>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="truncate font-medium text-gray-900"><?= Html::encode($c['name']) ?></span>
-                                <?php if ($c['flag'] !== ''): ?><span class="text-base leading-none"><?= $c['flag'] ?></span><?php endif; ?>
-                            </div>
-                            <div class="mt-0.5 flex items-center gap-2">
-                                <?= $starRow($c['rating'], 'text-xs') ?>
-                                <?php if ($c['date'] !== ''): ?><span class="text-xs text-gray-400"><?= Html::encode($c['date']) ?></span><?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php if ($c['content'] !== ''): ?>
-                        <p class="mt-3 text-sm leading-relaxed text-gray-700" style="text-wrap: pretty;"><?= Html::encode($c['content']) ?></p>
-                    <?php endif; ?>
-                    <?php if ($c['images']): ?>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            <?php foreach ($c['images'] as $gi): ?>
-                                <button type="button" @click="open(<?= (int) $gi ?>)" class="rev-thumb" aria-label="Open review photo">
-                                    <img src="<?= Html::encode($allImages[$gi]) ?>" alt="" loading="lazy">
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </article>
-            <?php endforeach; ?>
-            <p x-show="ordered.length === 0" x-cloak class="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
+        <!-- Review list. SSR baseline (stored reviews via _review-cards) is the instant/SEO
+             paint; Alpine replaces $refs.list innerHTML when a filter chip is clicked. -->
+        <div class="mt-3.5 flex flex-col gap-3.5" x-ref="list" data-ssr="1">
+            <?= $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]) ?>
         </div>
+        <p x-show="empty" x-cloak class="mt-3.5 rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
+        <p x-show="failed" x-cloak class="mt-3.5 rounded-xl border border-dashed border-amber-200 bg-amber-50 py-4 text-center text-sm text-amber-700">Couldn’t load filtered reviews right now — showing recent ones.</p>
 
-        <button type="button" @click="expanded = true" x-show="!expanded && hiddenCount > 0" x-cloak class="desc-more mt-4">
-            <span>Show more reviews</span>
-            <span class="tabular-nums text-gray-400">(<span x-text="hiddenCount"></span>)</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-                <polyline points="6 9 12 15 18 9"/>
-            </svg>
+        <button type="button" @click="loadMore()" x-show="hasMore" x-cloak class="desc-more mt-4">
+            <span x-text="loading ? 'Loading…' : 'Show more reviews'"></span>
         </button>
 
         <!-- Lightbox -->
@@ -858,62 +836,98 @@ document.addEventListener('alpine:init', () => {
         prev() { this.lbIndex = (this.lbIndex - 1 + this.images.length) % this.images.length; },
     }));
 
+    // Fetch-driven: chips/star-rows/pagination hit GET /product/<id>/reviews (which proxies
+    // AliExpress's own review API + caches), and swap the rendered card HTML into $refs.list.
+    // The SSR baseline stays in the DOM until the first filter/paging action.
     Alpine.data('productReviews', (cfg) => ({
-        images: cfg.images,
+        productId: cfg.productId,
+        images: cfg.images,      // seeded from the SSR baseline; replaced on fetch
         captions: cfg.captions,
-        meta: cfg.meta,
-        initial: cfg.initial,
-        filter: { mode: 'all', kw: '' },
+        total: cfg.total,
+        filter: 'all',
         sort: 'recent',
-        expanded: false,
+        page: 1,
+        totalPage: 1,
+        hasMore: cfg.hasMore,
+        loading: false,
+        failed: false,
+        empty: false,
         lightbox: false,
         lbIndex: 0,
 
-        // Clicking the active chip again clears back to "all".
-        setFilter(mode, kw = '') {
-            if (this.filter.mode === mode && this.filter.kw === kw) {
-                this.filter = { mode: 'all', kw: '' };
-            } else {
-                this.filter = { mode, kw };
-            }
-            this.expanded = false;
-        },
-        isActive(mode, kw = '') { return this.filter.mode === mode && this.filter.kw === kw; },
+        isActive(token) { return this.filter === String(token); },
 
-        passes(i) {
-            if (this.filter.mode === 'photos') { return this.meta[i].p; }
-            if (this.filter.mode === 'kw') { return this.meta[i].t.includes(this.filter.kw); }
-            if (this.filter.mode === 'star') { return Math.round(this.meta[i].r) === this.filter.kw; }
-            return true;
+        // Clicking the active chip again toggles back to the "all" baseline.
+        async setFilter(token) {
+            token = String(token);
+            const next = this.filter === token ? 'all' : token;
+            this.filter = next;
+            this.page = 1;
+            if (next === 'all') { this.restoreBaseline(); return; }
+            await this.fetch(false);
         },
-        get visibleIds() {
-            const out = [];
-            for (let i = 0; i < this.meta.length; i++) { if (this.passes(i)) { out.push(i); } }
-            return out;
+
+        async loadMore() {
+            if (this.loading || !this.hasMore) { return; }
+            if (this.filter === 'all' && this.$refs.list.dataset.ssr === '1') {
+                // First paging away from the SSR baseline: fetch AE page 1 of "all".
+                this.page = 1; await this.fetch(false); return;
+            }
+            this.page += 1;
+            await this.fetch(true);
         },
-        // Filtered list re-ordered by the active sort; drives both DOM order and the limit.
-        get ordered() {
-            const m = this.meta;
-            const ids = this.visibleIds;
-            if (this.sort === 'high') { return ids.sort((a, b) => m[b].r - m[a].r || m[b].d - m[a].d); }
-            if (this.sort === 'low') { return ids.sort((a, b) => m[a].r - m[b].r || m[b].d - m[a].d); }
-            return ids.sort((a, b) => m[b].d - m[a].d);
+
+        restoreBaseline() {
+            this.$refs.list.innerHTML = cfg.ssrHtml;
+            this.$refs.list.dataset.ssr = '1';
+            this.images = cfg.images;
+            this.captions = cfg.captions;
+            this.total = cfg.total;
+            this.hasMore = cfg.hasMore;
+            this.failed = false;
+            this.empty = false;
+            this.bindThumbs();
         },
-        orderOf(i) { return this.ordered.indexOf(i); },
-        cardShown(i) {
-            const pos = this.ordered.indexOf(i);
-            return pos !== -1 && (this.expanded || pos < this.initial);
+
+        async fetch(append) {
+            this.loading = true;
+            this.failed = false;
+            try {
+                const imgBase = append ? this.images.length : 0;
+                const url = `/product/${this.productId}/reviews?filter=${encodeURIComponent(this.filter)}&page=${this.page}&imgBase=${imgBase}`;
+                const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const d = await r.json();
+                if (!d.ok) { this.failed = true; return; }
+                if (append) {
+                    this.$refs.list.insertAdjacentHTML('beforeend', d.html);
+                    this.images = this.images.concat(d.images);
+                    Object.assign(this.captions, d.captions);
+                } else {
+                    this.$refs.list.innerHTML = d.html;
+                    this.$refs.list.dataset.ssr = '0';
+                    this.images = d.images;
+                    this.captions = d.captions;
+                }
+                this.total = d.total;
+                this.totalPage = d.totalPage;
+                this.hasMore = d.hasMore;
+                this.empty = !append && d.html.trim() === '';
+                this.bindThumbs();
+            } catch (e) {
+                this.failed = true;
+            } finally {
+                this.loading = false;
+            }
         },
-        // Single style binding drives BOTH order and visibility. Splitting these
-        // across x-show + :style let the :style rewrite clobber x-show's
-        // display:none on initially-hidden cards, so filters left stale cards on
-        // screen. Keep it one source of truth.
-        cardStyle(i) {
-            const pos = this.ordered.indexOf(i);
-            if (pos === -1 || (!this.expanded && pos >= this.initial)) { return 'display:none'; }
-            return 'order:' + pos;
+
+        // Injected [data-lb] thumbs can't carry an inline Alpine @click, so wire them up
+        // via event delegation after every innerHTML/insertAdjacentHTML swap (and on init).
+        bindThumbs() {
+            this.$refs.list.querySelectorAll('[data-lb]').forEach((el) => {
+                el.onclick = () => this.open(parseInt(el.dataset.lb, 10));
+            });
         },
-        get hiddenCount() { return Math.max(0, this.ordered.length - this.initial); },
+        init() { this.bindThumbs(); },
 
         open(i) { this.lbIndex = i; this.lightbox = true; },
         close() { this.lightbox = false; },
