@@ -128,11 +128,14 @@ final class SyncJobDispatcher
     private function syncReviews(SyncJob $job): void
     {
         $product = Product::findOne((int)$job->product_id) ?? throw new RuntimeException('Product not found.');
-        $sellerAdminSeq = (string)($product->store->seller_admin_seq ?? '');
-        $result = $this->reviewScraper->fetch($product->external_id, $sellerAdminSeq);
-        ProductReview::syncByProduct($product, $result['reviews']);
-        $product->review_impressions = $result['impressions'] !== [] ? $result['impressions'] : null;
-        $product->save(false, ['review_impressions']);
+        // fetchPage() carries impression ids (chips) and AE paging totals; it uses '0' for
+        // sellerAdminSeq internally, so the store's seller_admin_seq is no longer needed here.
+        $page = $this->reviewScraper->fetchPage($product->external_id, 'all', 'complex_default', 1, 20);
+        ProductReview::syncByProduct($product, $page['reviews']);
+        $product->review_impressions = $page['impressions'] !== [] ? $page['impressions'] : null; // now includes 'id'
+        $imagePage = $this->reviewScraper->fetchPage($product->external_id, 'image', 'complex_default', 1, 1);
+        $product->review_image_count = $imagePage['total'];
+        $product->save(false, ['review_impressions', 'review_image_count']);
     }
 
     private function refreshPrice(SyncJob $job): void

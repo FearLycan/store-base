@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\commands;
 
+use app\components\aliexpress\AliExpressReviewScraper;
+use app\components\ReviewCache;
 use app\enums\SyncJobTypeEnum;
 use app\models\Product;
 use app\models\SyncJob;
@@ -28,6 +30,42 @@ final class ReviewController extends Controller
         }
 
         return $options;
+    }
+
+    /**
+     * Clears the isolated review cache (@runtime/review-cache). This cache is deliberately
+     * invisible to `cache/flush-all`, so it must be flushed explicitly here.
+     */
+    public function actionFlushCache(): int
+    {
+        ReviewCache::get()->flush();
+        $this->stdout("review cache flushed\n");
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Repopulates impression ids + photo counts for existing products by re-reading AE.
+     * Chips (Task 7) need the impression `id` and the "With photos" total.
+     */
+    public function actionBackfillImpressions(): int
+    {
+        $scraper = new AliExpressReviewScraper();
+        foreach (Product::find()->where(['not', ['external_id' => null]])->each() as $p) {
+            try {
+                $imp = $scraper->fetchPage($p->external_id, 'all', 'complex_default', 1, 1);
+                $img = $scraper->fetchPage($p->external_id, 'image', 'complex_default', 1, 1);
+                $p->review_impressions = $imp['impressions'] !== [] ? $imp['impressions'] : null;
+                $p->review_image_count = $img['total'];
+                $p->save(false, ['review_impressions', 'review_image_count']);
+                $this->stdout("ok {$p->slug}\n");
+                usleep(500000);
+            } catch (\Throwable $e) {
+                $this->stderr("skip {$p->slug}: {$e->getMessage()}\n");
+            }
+        }
+
+        return ExitCode::OK;
     }
 
     public function actionSync(int $limit = 500): int
