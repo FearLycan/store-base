@@ -659,7 +659,7 @@ foreach ($product->reviews as $r) {
         <!-- Review list -->
         <div class="mt-3.5 flex flex-col gap-3.5">
             <?php foreach ($cards as $i => $c): ?>
-                <article x-show="cardShown(<?= $i ?>)" x-cloak :style="'order:' + orderOf(<?= $i ?>)" class="rev-card">
+                <article x-cloak :style="cardStyle(<?= $i ?>)" class="rev-card">
                     <div class="flex items-start gap-3">
                         <span class="rev-avatar" style="background-color:<?= Html::encode($c['color']) ?>"><?= Html::encode($c['initial']) ?></span>
                         <div class="min-w-0 flex-1">
@@ -903,6 +903,15 @@ document.addEventListener('alpine:init', () => {
         cardShown(i) {
             const pos = this.ordered.indexOf(i);
             return pos !== -1 && (this.expanded || pos < this.initial);
+        },
+        // Single style binding drives BOTH order and visibility. Splitting these
+        // across x-show + :style let the :style rewrite clobber x-show's
+        // display:none on initially-hidden cards, so filters left stale cards on
+        // screen. Keep it one source of truth.
+        cardStyle(i) {
+            const pos = this.ordered.indexOf(i);
+            if (pos === -1 || (!this.expanded && pos >= this.initial)) { return 'display:none'; }
+            return 'order:' + pos;
         },
         get hiddenCount() { return Math.max(0, this.ordered.length - this.initial); },
 
