@@ -654,14 +654,11 @@ foreach ($product->reviews as $r) {
             </div>
         <?php endif; ?>
 
-        <!-- Sort + count -->
-        <div class="mt-6 flex items-center justify-between gap-3">
+        <!-- Review count. (Sort control removed: AE's review API ignores the `sort`
+             param — every token returns identical order — so a working dropdown isn't
+             possible here. See plan Task 8.) -->
+        <div class="mt-6 flex items-center gap-3">
             <span class="text-sm text-gray-500"><span x-text="total"></span> review<span x-show="total !== 1">s</span></span>
-            <select x-model="sort" class="filter-select" aria-label="Sort reviews">
-                <option value="recent">Most recent</option>
-                <option value="high">Highest rating</option>
-                <option value="low">Lowest rating</option>
-            </select>
         </div>
 
         <!-- Review list. SSR baseline (stored reviews via _review-cards) is the instant/SEO
@@ -845,7 +842,6 @@ document.addEventListener('alpine:init', () => {
         captions: cfg.captions,
         total: cfg.total,
         filter: 'all',
-        sort: 'recent',
         page: 1,
         totalPage: 1,
         hasMore: cfg.hasMore,
