@@ -70,6 +70,7 @@ $config = [
                 'category/<slug:[a-z0-9-]+>' => 'catalog/category',
                 'stores'                     => 'store/index',
                 'store/<slug:[a-z0-9-]+>'    => 'store/view',
+                'product/<id:\d+>/reviews'   => 'product/reviews',
                 'product/<slug:[a-z0-9-]+>'  => 'product/view',
                 'login'                      => 'auth/default/login',
                 'logout'                     => 'auth/default/logout',
