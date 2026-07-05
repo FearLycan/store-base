@@ -24,6 +24,13 @@ final class ReviewCache
                 'directoryLevel'     => 1,
                 'defaultDuration'    => 0, // callers pass explicit TTL
                 'gcProbability'      => 100,
+                // The web app (www-data) is the only writer, but console commands run as
+                // root under `docker exec` and can create this dir first. World-writable
+                // dir + file modes let either user write regardless of who created it —
+                // otherwise a root-owned dir silently blocks www-data and nothing caches.
+                // Matches the container's already-777 @runtime posture.
+                'dirMode'            => 0777,
+                'fileMode'           => 0666,
             ]);
         }
 
