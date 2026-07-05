@@ -661,15 +661,42 @@ foreach ($product->reviews as $r) {
             <span class="text-sm text-gray-500"><span x-text="total"></span> review<span x-show="total !== 1">s</span></span>
         </div>
 
+        <!-- Skeleton placeholders shown only while a filter fetch REPLACES the list. -->
+        <div x-show="skeleton" x-cloak aria-hidden="true" class="mt-3.5 flex flex-col gap-3.5">
+            <?php for ($sk = 0; $sk < 3; $sk++): ?>
+                <div class="rev-skeleton">
+                    <div class="flex items-start gap-3">
+                        <div class="rev-sk h-9 w-9 flex-none rounded-full"></div>
+                        <div class="flex-1 space-y-2 pt-1">
+                            <div class="rev-sk h-3 w-28"></div>
+                            <div class="rev-sk h-2.5 w-20"></div>
+                        </div>
+                    </div>
+                    <div class="mt-3.5 space-y-2">
+                        <div class="rev-sk h-3 w-full"></div>
+                        <div class="rev-sk h-3 w-11/12"></div>
+                        <div class="rev-sk h-3 w-2/3"></div>
+                    </div>
+                </div>
+            <?php endfor; ?>
+        </div>
+
         <!-- Review list. SSR baseline (stored reviews via _review-cards) is the instant/SEO
              paint; Alpine replaces $refs.list innerHTML when a filter chip is clicked. -->
-        <div class="mt-3.5 flex flex-col gap-3.5" x-ref="list" data-ssr="1">
+        <div class="mt-3.5 flex flex-col gap-3.5" x-ref="list" data-ssr="1"
+             x-show="!skeleton"
+             x-transition:enter="transition-opacity duration-300 ease-out"
+             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
             <?= $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]) ?>
         </div>
         <p x-show="empty" x-cloak class="mt-3.5 rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">No reviews match this filter.</p>
         <p x-show="failed" x-cloak class="mt-3.5 rounded-xl border border-dashed border-amber-200 bg-amber-50 py-4 text-center text-sm text-amber-700">Couldn’t load filtered reviews right now — showing recent ones.</p>
 
         <button type="button" @click="loadMore()" x-show="hasMore" x-cloak class="desc-more mt-4">
+            <svg x-show="loading" viewBox="0 0 24 24" fill="none" class="h-4 w-4 animate-spin">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" stroke-opacity="0.25"/>
+                <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
             <span x-text="loading ? 'Loading…' : 'Show more reviews'"></span>
         </button>
 
@@ -846,6 +873,7 @@ document.addEventListener('alpine:init', () => {
         totalPage: 1,
         hasMore: cfg.hasMore,
         loading: false,
+        skeleton: false,   // show placeholder cards while a filter REPLACES the list
         failed: false,
         empty: false,
         lightbox: false,
@@ -860,13 +888,15 @@ document.addEventListener('alpine:init', () => {
             this.filter = next;
             this.page = 1;
             if (next === 'all') { this.restoreBaseline(); return; }
-            await this.fetch(false);
+            await this.fetch(false, true); // skeleton: the whole list is being replaced
         },
 
         async loadMore() {
             if (this.loading || !this.hasMore) { return; }
             if (this.filter === 'all' && this.$refs.list.dataset.ssr === '1') {
                 // First paging away from the SSR baseline: fetch AE page 1 of "all".
+                // No skeleton — baseline cards stay visible until the swap, so it reads
+                // as a smooth in-place refresh rather than a flash of placeholders.
                 this.page = 1; await this.fetch(false); return;
             }
             this.page += 1;
@@ -885,8 +915,9 @@ document.addEventListener('alpine:init', () => {
             this.bindThumbs();
         },
 
-        async fetch(append) {
+        async fetch(append, skeleton = false) {
             this.loading = true;
+            this.skeleton = skeleton && !append;
             this.failed = false;
             try {
                 const imgBase = append ? this.images.length : 0;
@@ -913,6 +944,7 @@ document.addEventListener('alpine:init', () => {
                 this.failed = true;
             } finally {
                 this.loading = false;
+                this.skeleton = false;
             }
         },
 
