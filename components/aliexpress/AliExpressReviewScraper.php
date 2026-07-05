@@ -58,6 +58,43 @@ final class AliExpressReviewScraper
         ];
     }
 
+    /**
+     * Fetch a single review page for a given AE filter/sort, with paging totals.
+     * filter: 'all' | 'image' | 'additional' | '1'..'5' | 'impression:<id>'
+     *
+     * @return array{reviews: array<int,array>, impressions: array<int,array{id:string,label:string,num:int,emotion:?int}>, total:int, totalPage:int, page:int}
+     */
+    public function fetchPage(string $productId, string $filter = 'all', string $sort = 'complex_default', int $page = 1, int $pageSize = 20): array
+    {
+        $this->session->bootstrapForProduct($productId);
+        $page = max(1, $page);
+        $pageSize = min(50, max(1, $pageSize));
+
+        $decoded = $this->session->call(self::REVIEW_API, [
+            'productId'      => $productId,
+            'page'           => $page,
+            'pageSize'       => $pageSize,
+            '_lang'          => $this->session->getLang(),
+            'filter'         => $filter !== '' ? $filter : 'all',
+            'sort'           => $sort !== '' ? $sort : 'complex_default',
+            'country'        => $this->session->getCountry(),
+            'sellerAdminSeq' => '0',
+            'clientType'     => 'web',
+        ]);
+
+        $data = is_array($decoded['data'] ?? null) ? $decoded['data'] : $decoded;
+        $total = (int)($data['totalNum'] ?? ($data['productEvaluationStatistic']['totalNum'] ?? 0));
+        $totalPage = (int)($data['totalPage'] ?? ($total > 0 ? (int)ceil($total / $pageSize) : 1));
+
+        return [
+            'reviews'     => $this->mapExtractedReviewsToReviewItems($this->dedupeExtractedReviews($this->extractReviewSummaries($decoded))),
+            'impressions' => $this->extractImpressionItems($decoded),
+            'total'       => $total,
+            'totalPage'   => max(1, $totalPage),
+            'page'        => $page,
+        ];
+    }
+
     private function extractReviewSummaries(array $payload): array
     {
         $result = [];
@@ -359,7 +396,9 @@ final class AliExpressReviewScraper
             if ($label === '') {
                 continue;
             }
-            $result[] = ['label' => $label, 'num' => max(0, $num)];
+            $id = trim((string)($rawItem['id'] ?? ''));
+            $emotion = isset($rawItem['emotion']) && is_numeric($rawItem['emotion']) ? (int)$rawItem['emotion'] : null;
+            $result[] = ['id' => $id, 'label' => $label, 'num' => max(0, $num), 'emotion' => $emotion];
         }
 
         return $result;
