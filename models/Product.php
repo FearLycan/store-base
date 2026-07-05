@@ -37,6 +37,10 @@ use yii\helpers\Inflector;
  * @property string $status
  * @property string $source
  * @property array|null $review_impressions
+ * @property int|null $review_image_count
+ * @property int|null $review_total
+ * @property array|null $review_rating_dist
+ * @property array|null $review_photos
  * @property int|null $first_imported_at
  * @property int|null $last_detail_synced_at
  * @property int|null $last_price_synced_at
@@ -73,10 +77,10 @@ class Product extends ActiveRecord
         return [
             [['store_id', 'external_id'], 'required'],
             [['store_id', 'category_id', 'price', 'original_price', 'previous_price', 'price_changed_at',
-              'review_count', 'orders_count', 'first_imported_at', 'last_detail_synced_at',
-              'last_price_synced_at', 'last_review_synced_at'], 'integer'],
+              'review_count', 'review_total', 'review_image_count', 'orders_count', 'first_imported_at',
+              'last_detail_synced_at', 'last_price_synced_at', 'last_review_synced_at'], 'integer'],
             [['description'], 'string'],
-            [['review_impressions'], 'safe'],
+            [['review_impressions', 'review_rating_dist', 'review_photos'], 'safe'],
             [['rating_value', 'rating_scale_max'], 'number'],
             [['external_id', 'currency_code', 'availability', 'status', 'source'], 'string', 'max' => 64],
             [['title', 'display_title', 'slug'], 'string', 'max' => 512],

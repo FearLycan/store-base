@@ -62,7 +62,7 @@ final class AliExpressReviewScraper
      * Fetch a single review page for a given AE filter/sort, with paging totals.
      * filter: 'all' | 'image' | 'additional' | '1'..'5' | 'impression:<id>'
      *
-     * @return array{reviews: array<int,array>, impressions: array<int,array{id:string,label:string,num:int,emotion:?int}>, total:int, totalPage:int, page:int}
+     * @return array{reviews: array<int,array>, impressions: array<int,array{id:string,label:string,num:int,emotion:?int}>, total:int, totalPage:int, page:int, stat: array<string,mixed>}
      */
     public function fetchPage(string $productId, string $filter = 'all', string $sort = 'complex_default', int $page = 1, int $pageSize = 20): array
     {
@@ -92,6 +92,62 @@ final class AliExpressReviewScraper
             'total'       => $total,
             'totalPage'   => max(1, $totalPage),
             'page'        => $page,
+            'stat'        => is_array($data['productEvaluationStatistic'] ?? null) ? $data['productEvaluationStatistic'] : [],
+        ];
+    }
+
+    /**
+     * Normalize AE's productEvaluationStatistic star breakdown to a {5,4,3,2,1 => int} map.
+     *
+     * @param array<string,mixed> $stat
+     * @return array<int,int>
+     */
+    public static function ratingDistFromStat(array $stat): array
+    {
+        return [
+            5 => (int)($stat['fiveStarNum'] ?? 0),
+            4 => (int)($stat['fourStarNum'] ?? 0),
+            3 => (int)($stat['threeStarNum'] ?? 0),
+            2 => (int)($stat['twoStarNum'] ?? 0),
+            1 => (int)($stat['oneStarNum'] ?? 0),
+        ];
+    }
+
+    /**
+     * Full-corpus review aggregates for a product page, so the reviews section can
+     * show REAL numbers (total, star distribution, photo count + a photo strip)
+     * rather than the tiny stored sample. Two AE calls: `all` (reviews + stat) and
+     * `image` (photo count + strip). Shared by sync and the backfill command.
+     *
+     * @return array{reviews:array, impressions:array, total:int, dist:array<int,int>, imageCount:int, photos:array<int,array{u:string,r:float}>}
+     */
+    public function fetchAggregates(string $productId, int $photoLimit = 14): array
+    {
+        $all = $this->fetchPage($productId, 'all', 'complex_default', 1, 20);
+        $img = $this->fetchPage($productId, 'image', 'complex_default', 1, max(1, $photoLimit));
+
+        $photos = [];
+        foreach ($img['reviews'] as $r) {
+            $rating = isset($r['rating_value']) && is_numeric($r['rating_value']) ? (float)$r['rating_value'] : 0.0;
+            foreach ((array)($r['images'] ?? []) as $u) {
+                $u = trim((string)$u);
+                if ($u === '') {
+                    continue;
+                }
+                $photos[] = ['u' => $u, 'r' => $rating];
+                if (count($photos) >= $photoLimit) {
+                    break 2;
+                }
+            }
+        }
+
+        return [
+            'reviews'     => $all['reviews'],
+            'impressions' => $all['impressions'],
+            'total'       => $all['total'],
+            'dist'        => self::ratingDistFromStat($all['stat']),
+            'imageCount'  => $img['total'],
+            'photos'      => $photos,
         ];
     }
 

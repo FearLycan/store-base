@@ -128,14 +128,18 @@ final class SyncJobDispatcher
     private function syncReviews(SyncJob $job): void
     {
         $product = Product::findOne((int)$job->product_id) ?? throw new RuntimeException('Product not found.');
-        // fetchPage() carries impression ids (chips) and AE paging totals; it uses '0' for
-        // sellerAdminSeq internally, so the store's seller_admin_seq is no longer needed here.
-        $page = $this->reviewScraper->fetchPage($product->external_id, 'all', 'complex_default', 1, 20);
-        ProductReview::syncByProduct($product, $page['reviews']);
-        $product->review_impressions = $page['impressions'] !== [] ? $page['impressions'] : null; // now includes 'id'
-        $imagePage = $this->reviewScraper->fetchPage($product->external_id, 'image', 'complex_default', 1, 1);
-        $product->review_image_count = $imagePage['total'];
-        $product->save(false, ['review_impressions', 'review_image_count']);
+        // Real full-corpus aggregates (total, star distribution, photo count + strip) so
+        // the reviews UI is self-consistent — "all" >= any filter, and the photo strip
+        // reflects what the "with photos" filter returns. fetchAggregates uses '0' for
+        // sellerAdminSeq internally, so the store's seller_admin_seq is no longer needed.
+        $agg = $this->reviewScraper->fetchAggregates($product->external_id);
+        ProductReview::syncByProduct($product, $agg['reviews']);
+        $product->review_impressions  = $agg['impressions'] !== [] ? $agg['impressions'] : null; // includes 'id'
+        $product->review_total        = $agg['total'] ?: null;
+        $product->review_rating_dist  = array_sum($agg['dist']) > 0 ? $agg['dist'] : null;
+        $product->review_image_count  = $agg['imageCount'];
+        $product->review_photos       = $agg['photos'] !== [] ? $agg['photos'] : null;
+        $product->save(false, ['review_impressions', 'review_total', 'review_rating_dist', 'review_image_count', 'review_photos']);
     }
 
     private function refreshPrice(SyncJob $job): void

@@ -45,19 +45,22 @@ final class ReviewController extends Controller
     }
 
     /**
-     * Repopulates impression ids + photo counts for existing products by re-reading AE.
-     * Chips (Task 7) need the impression `id` and the "With photos" total.
+     * Repopulates the full review aggregates (impression ids, real total, star
+     * distribution, photo count + strip) for existing products by re-reading AE, so
+     * the reviews UI shows full-corpus numbers instead of the stored sample.
      */
     public function actionBackfillImpressions(): int
     {
         $scraper = new AliExpressReviewScraper();
         foreach (Product::find()->where(['not', ['external_id' => null]])->each() as $p) {
             try {
-                $imp = $scraper->fetchPage($p->external_id, 'all', 'complex_default', 1, 1);
-                $img = $scraper->fetchPage($p->external_id, 'image', 'complex_default', 1, 1);
-                $p->review_impressions = $imp['impressions'] !== [] ? $imp['impressions'] : null;
-                $p->review_image_count = $img['total'];
-                $p->save(false, ['review_impressions', 'review_image_count']);
+                $agg = $scraper->fetchAggregates($p->external_id);
+                $p->review_impressions  = $agg['impressions'] !== [] ? $agg['impressions'] : null;
+                $p->review_total        = $agg['total'] ?: null;
+                $p->review_rating_dist  = array_sum($agg['dist']) > 0 ? $agg['dist'] : null;
+                $p->review_image_count  = $agg['imageCount'];
+                $p->review_photos       = $agg['photos'] !== [] ? $agg['photos'] : null;
+                $p->save(false, ['review_impressions', 'review_total', 'review_rating_dist', 'review_image_count', 'review_photos']);
                 $this->stdout("ok {$p->slug}\n");
                 usleep(500000);
             } catch (\Throwable $e) {

@@ -567,13 +567,51 @@ foreach ($product->reviews as $r) {
         $meta[] = ['p' => $imgIdx !== [], 't' => mb_strtolower($content), 'r' => $rating, 'd' => (int) $r->reviewed_at];
     }
     $revTotal = count($cards);
+
+    // Prefer AE's real full-corpus aggregates over the tiny stored sample, so "all"
+    // is never smaller than a filter and the photo strip matches "with photos".
+    // Falls back to the sample when a product hasn't been backfilled yet.
+    $realTotal = (int) ($product->review_total ?? 0) ?: $revTotal;
+
+    $rd = is_array($product->review_rating_dist) ? $product->review_rating_dist : [];
+    $realDist = [];
+    $hasRealDist = false;
+    foreach ([5, 4, 3, 2, 1] as $s) {
+        $realDist[$s] = (int) ($rd[$s] ?? $rd[(string) $s] ?? 0);
+        if ($realDist[$s] > 0) {
+            $hasRealDist = true;
+        }
+    }
+    if (!$hasRealDist) {
+        $realDist = $dist; // sample fallback
+    }
+
+    // Independent photo strip (real AE photos when present, else the sample). Its
+    // lightbox uses a separate image set from the card list, since the list gets
+    // replaced when a filter loads.
+    $stripPhotos = [];   // [{u,r}] backing the strip + its own lightbox
+    foreach (is_array($product->review_photos) ? $product->review_photos : [] as $ph) {
+        $u = trim((string) ($ph['u'] ?? ''));
+        if ($u !== '') {
+            $stripPhotos[] = ['u' => $u, 'r' => (float) ($ph['r'] ?? 0)];
+        }
+    }
+    if ($stripPhotos === []) {
+        foreach ($photoStrip as $ph) {   // sample fallback
+            $stripPhotos[] = ['u' => $ph['url'], 'r' => (float) $ph['rating']];
+        }
+    }
+    $stripCount = (int) ($product->review_image_count ?? 0) ?: count($stripPhotos);
+
     $reviewsCfg = [
-        'productId' => (int) $product->id,
-        'images'    => $allImages,
-        'captions'  => $captions,
-        'total'     => $revTotal,
-        'hasMore'   => $revTotal >= 20, // baseline is capped at 20; AE has more to page through
-        'ssrHtml'   => $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]),
+        'productId'     => (int) $product->id,
+        'images'        => $allImages,
+        'captions'      => $captions,
+        'total'         => $realTotal,
+        'hasMore'       => $realTotal > $revTotal, // AE has more than the stored baseline
+        'stripImages'   => array_map(static fn($p) => $p['u'], $stripPhotos),
+        'stripCaptions' => array_map(static fn($p) => ['r' => $p['r']], $stripPhotos),
+        'ssrHtml'       => $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]),
     ];
     ?>
     <section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
@@ -585,19 +623,19 @@ foreach ($product->reviews as $r) {
                 <div class="text-5xl font-bold leading-none tabular-nums text-gray-900"><?= number_format((float) $product->rating_value, 1) ?></div>
                 <div>
                     <?= $starRow((float) $product->rating_value, 'text-lg') ?>
-                    <div class="mt-1 text-sm text-gray-500"><?= number_format($revTotal) ?> review<?= $revTotal === 1 ? '' : 's' ?></div>
+                    <div class="mt-1 text-sm text-gray-500"><?= number_format($realTotal) ?> review<?= $realTotal === 1 ? '' : 's' ?></div>
                 </div>
             </div>
             <div class="hidden w-px self-stretch bg-gray-100 sm:block"></div>
             <div class="min-w-0 flex-1">
-                <?php for ($s = 5; $s >= 1; $s--): $pct = $revTotal ? round($dist[$s] / $revTotal * 100) : 0; ?>
+                <?php for ($s = 5; $s >= 1; $s--): $pct = $realTotal ? round($realDist[$s] / $realTotal * 100) : 0; ?>
                     <button type="button" class="rev-dist-row" :class="{ 'is-active': isActive('<?= $s ?>') }"
-                            @click="setFilter('<?= $s ?>')"<?= $dist[$s] === 0 ? ' disabled' : '' ?>
-                            aria-label="Show <?= $dist[$s] ?> <?= $s ?>-star review<?= $dist[$s] === 1 ? '' : 's' ?>">
+                            @click="setFilter('<?= $s ?>')"<?= $realDist[$s] === 0 ? ' disabled' : '' ?>
+                            aria-label="Show <?= $realDist[$s] ?> <?= $s ?>-star review<?= $realDist[$s] === 1 ? '' : 's' ?>">
                         <span class="w-3 flex-none text-right tabular-nums text-gray-500"><?= $s ?></span>
                         <span class="text-amber-400">★</span>
                         <span class="rev-bar-track"><span class="rev-bar-fill" style="width:<?= $pct ?>%"></span></span>
-                        <span class="w-6 flex-none text-right tabular-nums text-gray-400"><?= $dist[$s] ?></span>
+                        <span class="w-6 flex-none text-right tabular-nums text-gray-400"><?= $realDist[$s] ?></span>
                     </button>
                 <?php endfor; ?>
                 <div class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
@@ -609,17 +647,17 @@ foreach ($product->reviews as $r) {
             </div>
         </div>
 
-        <?php if ($photoStrip): ?>
-            <!-- Customer photos -->
+        <?php if ($stripPhotos): ?>
+            <!-- Customer photos. Real AE photos + count; its own lightbox set (openStrip). -->
             <div class="mt-6">
-                <div class="mb-2.5 text-sm font-semibold text-gray-900">Photos from reviews <span class="font-normal tabular-nums text-gray-400">(<?= count($photoStrip) ?>)</span></div>
+                <div class="mb-2.5 text-sm font-semibold text-gray-900">Photos from reviews <span class="font-normal tabular-nums text-gray-400">(<?= number_format($stripCount) ?>)</span></div>
                 <div class="flex gap-2.5 overflow-x-auto pb-1.5">
-                    <?php foreach (array_slice($photoStrip, 0, 14) as $k => $ph): ?>
-                        <button type="button" @click="open(<?= (int) $ph['i'] ?>)" class="rev-photo" aria-label="Open review photo">
-                            <img src="<?= Html::encode($ph['url']) ?>" alt="" loading="lazy">
-                            <span class="rev-photo-badge"><span class="text-amber-300">★</span><?= number_format($ph['rating'], 1) ?></span>
-                            <?php if ($k === 13 && count($photoStrip) > 14): ?>
-                                <span class="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">+<?= count($photoStrip) - 14 ?></span>
+                    <?php foreach (array_slice($stripPhotos, 0, 14) as $k => $ph): ?>
+                        <button type="button" @click="openStrip(<?= (int) $k ?>)" class="rev-photo" aria-label="Open review photo">
+                            <img src="<?= Html::encode($ph['u']) ?>" alt="" loading="lazy">
+                            <span class="rev-photo-badge"><span class="text-amber-300">★</span><?= number_format($ph['r'], 1) ?></span>
+                            <?php if ($k === 13 && $stripCount > 14): ?>
+                                <span class="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">+<?= number_format($stripCount - 14) ?></span>
                             <?php endif; ?>
                         </button>
                     <?php endforeach; ?>
@@ -713,29 +751,29 @@ foreach ($product->reviews as $r) {
                     <line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
             </button>
-            <button type="button" @click.stop="prev()" x-show="images.length > 1" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
+            <button type="button" @click.stop="prev()" x-show="lbImages.length > 1" class="lb-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
                     <polyline points="15 18 9 12 15 6"/>
                 </svg>
             </button>
-            <img :src="images[lbIndex]" alt="" class="max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
-            <button type="button" @click.stop="next()" x-show="images.length > 1" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
+            <img :src="lbImages[lbIndex]" alt="" class="max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" @click.stop>
+            <button type="button" @click.stop="next()" x-show="lbImages.length > 1" class="lb-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
                     <polyline points="9 18 15 12 9 6"/>
                 </svg>
             </button>
-            <div x-show="images.length > 1" class="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="images.length"></span></div>
+            <div x-show="lbImages.length > 1" class="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium tabular-nums text-white/90"><span x-text="lbIndex + 1"></span> / <span x-text="lbImages.length"></span></div>
             <!-- Caption: the review the current photo belongs to -->
-            <div x-show="captions[lbIndex] && (captions[lbIndex].c || captions[lbIndex].n)" x-cloak
+            <div x-show="lbCaptions[lbIndex] && (lbCaptions[lbIndex].c || lbCaptions[lbIndex].n)" x-cloak
                  class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-4 pb-5 pt-16">
                 <div class="mx-auto max-w-2xl text-white">
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span class="text-sm font-semibold" x-text="captions[lbIndex]?.n"></span>
-                        <span x-show="captions[lbIndex]?.f" class="text-sm leading-none" x-text="captions[lbIndex]?.f"></span>
-                        <span class="inline-flex items-center gap-0.5 text-xs text-amber-400"><span>★</span><span class="tabular-nums" x-text="captions[lbIndex]?.r?.toFixed(1)"></span></span>
-                        <span x-show="captions[lbIndex]?.d" class="text-xs text-white/55" x-text="captions[lbIndex]?.d"></span>
+                        <span class="text-sm font-semibold" x-text="lbCaptions[lbIndex]?.n"></span>
+                        <span x-show="lbCaptions[lbIndex]?.f" class="text-sm leading-none" x-text="lbCaptions[lbIndex]?.f"></span>
+                        <span class="inline-flex items-center gap-0.5 text-xs text-amber-400"><span>★</span><span class="tabular-nums" x-text="lbCaptions[lbIndex]?.r?.toFixed(1)"></span></span>
+                        <span x-show="lbCaptions[lbIndex]?.d" class="text-xs text-white/55" x-text="lbCaptions[lbIndex]?.d"></span>
                     </div>
-                    <p x-show="captions[lbIndex]?.c" class="mt-1 max-h-24 overflow-y-auto text-sm leading-relaxed text-white/90" x-text="captions[lbIndex]?.c"></p>
+                    <p x-show="lbCaptions[lbIndex]?.c" class="mt-1 max-h-24 overflow-y-auto text-sm leading-relaxed text-white/90" x-text="lbCaptions[lbIndex]?.c"></p>
                 </div>
             </div>
         </div>
@@ -878,6 +916,8 @@ document.addEventListener('alpine:init', () => {
         empty: false,
         lightbox: false,
         lbIndex: 0,
+        lbImages: [],      // lightbox reads these; set at open time so the card list
+        lbCaptions: {},    // and the (independent) photo strip each drive their own set
 
         isActive(token) { return this.filter === String(token); },
 
@@ -957,10 +997,12 @@ document.addEventListener('alpine:init', () => {
         },
         init() { this.bindThumbs(); },
 
-        open(i) { this.lbIndex = i; this.lightbox = true; },
+        // Card thumb → lightbox over the current list's images. Strip photo → its own set.
+        open(i) { this.lbImages = this.images; this.lbCaptions = this.captions; this.lbIndex = i; this.lightbox = true; },
+        openStrip(i) { this.lbImages = cfg.stripImages || []; this.lbCaptions = cfg.stripCaptions || {}; this.lbIndex = i; this.lightbox = true; },
         close() { this.lightbox = false; },
-        next() { this.lbIndex = (this.lbIndex + 1) % this.images.length; },
-        prev() { this.lbIndex = (this.lbIndex - 1 + this.images.length) % this.images.length; },
+        next() { this.lbIndex = (this.lbIndex + 1) % this.lbImages.length; },
+        prev() { this.lbIndex = (this.lbIndex - 1 + this.lbImages.length) % this.lbImages.length; },
     }));
 });
 JS, \yii\web\View::POS_END);
