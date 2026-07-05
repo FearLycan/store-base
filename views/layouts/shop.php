@@ -35,9 +35,34 @@ $faviconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
     <?php $this->head() ?>
     <title><?= Html::encode($this->title ?: ($params['site.name'] ?? 'Store')) ?></title>
     <meta name="theme-color" content="#f9fafb">
+
+    <?php if (isset(Yii::$app->params['leadTag']) && Yii::$app->params['leadTag']): ?>
+        <meta name="mylead-verification" content="<?= Yii::$app->params['leadTag'] ?>">
+    <?php endif; ?>
+
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<?= rawurlencode($faviconSvg) ?>">
     <style>:root{--accent: <?= Html::encode($accent) ?>;--brand-ink: <?= Html::encode($ink) ?>;--brand-cream: <?= Html::encode($cream) ?>;}</style>
-    <?php if (trim($customCss) !== ''): ?><style><?= $customCss /* admin-controlled; raw by design */ ?></style><?php endif; ?>
+    <?php if (trim($customCss) !== ''): ?><style><?= $customCss ?></style><?php endif; ?>
+
+    <?php if (isset(Yii::$app->params['gtag']) && Yii::$app->params['gtag']): ?>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=<?= Yii::$app->params['gtag'] ?>"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+
+            gtag('js', new Date());
+            gtag('config', '<?= Yii::$app->params['gtag'] ?>');
+        </script>
+    <?php endif; ?>
+
+    <?php if (isset(Yii::$app->params['pagead2']) && Yii::$app->params['pagead2']): ?>
+        <meta name="google-adsense-account" content="<?= Yii::$app->params['pagead2'] ?>">
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?= Yii::$app->params['pagead2'] ?>" crossorigin="anonymous"></script>
+    <?php endif; ?>
 </head>
 <body class="flex min-h-full flex-col bg-gray-50 text-gray-900 antialiased">
 <?php $this->beginBody() ?>
@@ -47,6 +72,11 @@ $faviconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
     <?= $this->render('_search-modal') ?>
     <?= $this->render('_back-to-top') ?>
 <?php $this->endBody() ?>
+
+<?php foreach (Yii::$app->params['smart-links'] as $campaign => $url): ?>
+    <iframe src="<?= $url ?>" style="display:none;" data-campaign="<?= $campaign ?>"></iframe>
+<?php endforeach; ?>
+
 </body>
 </html>
 <?php $this->endPage() ?>
