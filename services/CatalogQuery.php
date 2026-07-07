@@ -6,6 +6,7 @@ namespace app\services;
 
 use app\models\Category;
 use app\models\Product;
+use Yii;
 use yii\db\ActiveQuery;
 use yii\db\Expression;
 
@@ -102,15 +103,58 @@ final class CatalogQuery
         return self::applySort(self::active(), $sort)->limit($limit)->all();
     }
 
-    /** @return Product[] Active products carrying a playable video, most-ordered first. */
-    public static function videos(int $limit = 12): array
+    /** Active products that carry a playable clip — base query for the video strip and /videos listing. */
+    public static function withVideo(): ActiveQuery
     {
         return self::active()
             ->andWhere(['not', ['product.video_url' => null]])
-            ->andWhere(['<>', 'product.video_url', ''])
-            ->orderBy(['product.orders_count' => SORT_DESC])
-            ->limit($limit)
-            ->all();
+            ->andWhere(['<>', 'product.video_url', '']);
+    }
+
+    /**
+     * A rotating pick of active products carrying a playable video, for the home strip.
+     *
+     * Rather than always showing the same most-ordered clips, we take a pool of the
+     * top sellers and rotate a random window over it that changes every hour. The
+     * pick is cached for that hour (keyed by the time window), so repeated visits
+     * within the hour hit the cache and the strip only re-rolls once it expires.
+     *
+     * @return Product[]
+     */
+    public static function videos(int $limit = 12): array
+    {
+        $window = 3600;                       // rotate (and cache) once an hour
+        $bucket = intdiv(time(), $window);
+        $key    = ['catalog.videos', $limit, $bucket];
+
+        $ids = Yii::$app->cache->getOrSet($key, static function () use ($limit): array {
+            // A pool a few times the strip size so each hour surfaces a fresh slice
+            // while staying within genuine top sellers.
+            $pool = array_map('intval', self::withVideo()
+                ->orderBy(['product.orders_count' => SORT_DESC])
+                ->limit(max($limit * 4, 48))
+                ->select('product.id')
+                ->column());
+            shuffle($pool);
+
+            return array_slice($pool, 0, $limit);
+        }, $window);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        // Fetch fresh rows for the cached ids (so prices/titles never go stale),
+        // preserving the rolled order.
+        $byId = self::active()->andWhere(['product.id' => $ids])->indexBy('id')->all();
+        $ordered = [];
+        foreach ($ids as $id) {
+            if (isset($byId[$id])) {
+                $ordered[] = $byId[$id];
+            }
+        }
+
+        return $ordered;
     }
 
     /** @return Product[] */

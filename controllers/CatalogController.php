@@ -43,6 +43,16 @@ final class CatalogController extends Controller
         return $this->render('wishlist');
     }
 
+    /** Every product clip, paginated — the "View all" target for the home video strip. */
+    public function actionVideos(): string
+    {
+        $query = CatalogQuery::withVideo()->orderBy(['product.orders_count' => SORT_DESC]);
+
+        return $this->render('videos', [
+            'dataProvider' => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
+        ]);
+    }
+
     public function actionAll(): string
     {
         $filters = Yii::$app->request->queryParams;

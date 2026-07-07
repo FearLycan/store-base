@@ -61,6 +61,7 @@ $config = [
             'rules'           => [
                 ''                           => 'catalog/index',
                 'catalog'                    => 'catalog/all',
+                'videos'                     => 'catalog/videos',
                 'search'                     => 'catalog/search',
                 'wishlist'                   => 'catalog/wishlist',
                 'search/suggest'             => 'catalog/suggest',

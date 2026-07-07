@@ -663,6 +663,13 @@
   .video-rail::-webkit-scrollbar-thumb { border-radius: 4px; background: rgb(17 24 39 / 0.18); }
   .video-rail::-webkit-scrollbar-track { background: transparent; }
 
+  /* Same cards, laid out as a paginated grid on the /videos listing. The
+     descendant selector outranks the card's own fixed rail width utilities. */
+  .video-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+  .video-grid .video-card { width: 100%; }
+
   .video-card {
     @apply relative aspect-video w-[17rem] flex-none cursor-pointer snap-start overflow-hidden rounded-2xl border border-gray-200 bg-gray-900 text-left transition hover:shadow-md sm:w-[20rem];
   }
