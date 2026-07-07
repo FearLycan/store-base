@@ -11,7 +11,11 @@ use app\components\schema\JsonLdRenderer;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-Seo::apply($this, 'Catalog', 'Browse all products.', Url::to(['/catalog/all'], true));
+// Prepare first so the paginator learns its totalCount: reading the page number
+// before that (for the canonical/title below) would validate against a 0 count
+// and clamp every page to 1. See Seo::apply.
+$dataProvider->prepare();
+Seo::apply($this, 'Catalog', 'Browse all products.', Url::to(['/catalog/all'], true), false, '', $dataProvider->getPagination());
 $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
 ?>
 <?= JsonLdRenderer::render(ListingPageSchemaBuilder::build($dataProvider, [], $home, 'Catalog', 'Catalog')) ?>

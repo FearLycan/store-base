@@ -16,7 +16,11 @@ use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 
 $canonical = Url::to(['/catalog/category', 'slug' => $category->slug], true);
-Seo::apply($this, $category->name, 'Browse ' . $category->name . ' products.', $canonical);
+// Prepare first so the paginator learns its totalCount before we read the page
+// number for the canonical/title — otherwise it validates against a 0 count and
+// clamps every page to 1. See Seo::apply.
+$dataProvider->prepare();
+Seo::apply($this, $category->name, 'Browse ' . $category->name . ' products.', $canonical, false, '', $dataProvider->getPagination());
 $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
 
 // Breadcrumb trail: Home > [ancestors…] > current — the full chain (L1 > L2 > L3), not just the

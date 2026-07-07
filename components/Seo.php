@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\components;
 
+use yii\data\Pagination;
 use yii\web\View;
 
 final class Seo
@@ -15,8 +16,18 @@ final class Seo
      */
     private const BRAND = 'SnagLoft';
 
-    public static function apply(View $view, string $title, string $description, string $canonical, bool $noindex = false, string $ogImage = ''): void
+    public static function apply(View $view, string $title, string $description, string $canonical, bool $noindex = false, string $ogImage = '', ?Pagination $pages = null): void
     {
+        // Paginated listings self-canonicalise: page 2+ gets its own `?page=N`
+        // canonical (never collapsed to page 1, or deep products fall out of the
+        // index) and a "– Page N" title/description suffix so the SERP entries
+        // aren't near-duplicates. Page 1 stays on the clean, param-free URL.
+        if ($pages !== null && $pages->page > 0) {
+            $n = $pages->page + 1;
+            $title .= ' – Page ' . $n;
+            $description = trim($description) . ' (page ' . $n . ')';
+            $canonical .= (str_contains($canonical, '?') ? '&' : '?') . 'page=' . $n;
+        }
         $title = self::withBrand($title);
         $view->title = $title;
         $desc = mb_substr(trim($description), 0, 300);
