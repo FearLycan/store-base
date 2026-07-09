@@ -93,6 +93,9 @@ final class StoreController extends Controller
             'dataProvider'  => new ActiveDataProvider(['query' => $query, 'pagination' => new Pagination(['pageSize' => 24])]),
             'current'       => $filters,
             'categories'    => Category::excludeHidden(Category::find()->where(['level' => 1]))->orderBy(['name' => SORT_ASC])->all(),
+            'avgRating'     => (float) (CatalogQuery::active()
+                ->andWhere(['product.store_id' => $store->id])
+                ->average('product.rating_value') ?? 0),
             'showcase'      => $showcase,
             'banners'       => $banners,
             'bestsellers'   => $bestsellers,

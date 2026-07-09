@@ -4,6 +4,7 @@
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array $current */
 /** @var app\models\Category[] $categories */
+/** @var float $avgRating */
 /** @var bool $showcase */
 /** @var app\models\StoreBanner[] $banners */
 /** @var app\models\Product[] $bestsellers */
@@ -27,14 +28,27 @@ $arrow = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true" class="h-3.5 w
     ['name' => $store->name, 'url' => null],
 ]]) ?>
 
-<div class="mb-6 flex items-center gap-4">
-    <?= $this->render('_logo', ['store' => $store, 'size' => 'lg']) ?>
-    <div class="min-w-0">
-        <h1 class="text-2xl font-bold leading-tight"><?= Html::encode($store->name) ?></h1>
-        <p class="mt-1 text-sm text-gray-500"><?= number_format($dataProvider->totalCount) ?> product<?= $dataProvider->totalCount === 1 ? '' : 's' ?></p>
+<section class="store-head mb-6">
+    <div class="flex flex-wrap items-center gap-4 sm:gap-5">
+        <?= $this->render('_logo', ['store' => $store, 'size' => 'xl']) ?>
+        <div class="min-w-0 flex-1">
+            <h1 class="text-2xl font-bold leading-tight tracking-tight sm:text-3xl"><?= Html::encode($store->name) ?></h1>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="store-head-stat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+                    <strong><?= number_format($dataProvider->totalCount) ?></strong> product<?= $dataProvider->totalCount === 1 ? '' : 's' ?>
+                </span>
+                <?php if ($avgRating > 0): ?>
+                    <span class="store-head-stat">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5 14.9 8.6l6.6.9-4.8 4.6 1.2 6.6L12 17.5l-5.9 3.2 1.2-6.6L2.5 9.5l6.6-.9L12 2.5z"/></svg>
+                        <strong><?= number_format($avgRating, 1) ?></strong> avg rating
+                    </span>
+                <?php endif; ?>
+            </div>
+        </div>
         <?= $this->render('_socials', ['store' => $store]) ?>
     </div>
-</div>
+</section>
 
 <?php if ($showcase): ?>
     <?php if ($banners !== []): ?>

@@ -60,8 +60,15 @@ final class CatalogQuery
         if (isset($f['rating']) && is_numeric($f['rating'])) {
             $query->andWhere(['>=', 'product.rating_value', (float)$f['rating']]);
         }
-        if (isset($f['category']) && (int)$f['category'] > 0) {
-            self::inCategory($query, (int)$f['category']);
+        if (!empty($f['category'])) {
+            // Accepts a numeric id (filter selects) or a slug (pretty links,
+            // e.g. the store page category cards).
+            $categoryId = is_numeric($f['category'])
+                ? (int)$f['category']
+                : (int)(Category::find()->select('id')->where(['slug' => (string)$f['category']])->scalar() ?: 0);
+            if ($categoryId > 0) {
+                self::inCategory($query, $categoryId);
+            }
         }
         if (isset($f['store']) && (int)$f['store'] > 0) {
             $query->andWhere(['product.store_id' => (int)$f['store']]);

@@ -8,7 +8,7 @@
  * tile size, and the letter scales with the tile automatically.
  *
  * @var app\models\Store $store
- * @var string $size One of: sm (product "Sold by"), md (store card), lg (store hero).
+ * @var string $size One of: sm (product "Sold by"), md (store card), lg (store hero), xl (store page identity header).
  */
 
 use yii\helpers\Html;
@@ -18,6 +18,7 @@ $presets = [
     'sm' => ['box' => 'h-12 w-12', 'round' => 'rounded-lg'],
     'md' => ['box' => 'h-14 w-14', 'round' => 'rounded-xl'],
     'lg' => ['box' => 'h-16 w-16', 'round' => 'rounded-2xl'],
+    'xl' => ['box' => 'h-20 w-20', 'round' => 'rounded-2xl'],
 ];
 $p = $presets[$size] ?? $presets['md'];
 $image = trim((string) $store->image_url);

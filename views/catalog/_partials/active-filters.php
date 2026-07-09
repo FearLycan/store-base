@@ -11,11 +11,19 @@ $categories = $categories ?? [];
 $stores = $stores ?? [];
 $cur = static fn (string $k): string => isset($current[$k]) ? trim((string)$current[$k]) : '';
 
-// Resolve the category chip's label from its id (only present on /catalog & /search).
+// Resolve the category chip's label from its id or slug (only present on /catalog & /search).
 $catName = '';
 if ($cur('category') !== '') {
     foreach ($categories as $c) {
-        if ((string)$c->id === $cur('category')) { $catName = (string)$c->name; break; }
+        if ((string)$c->id === $cur('category') || (string)$c->slug === $cur('category')) { $catName = (string)$c->name; break; }
+    }
+    if ($catName === '') {
+        // Deep categories (e.g. the store page's category cards link by slug)
+        // aren't in the top-level list — resolve the label directly.
+        $cat = \app\models\Category::find()
+            ->where(['or', ['slug' => $cur('category')], ['id' => (int)$cur('category')]])
+            ->one();
+        if ($cat !== null) { $catName = (string)$cat->name; }
     }
 }
 

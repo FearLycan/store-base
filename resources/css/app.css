@@ -681,15 +681,38 @@
   .store-hero-dot:hover { background-color: rgb(255 255 255 / 0.8); }
   .store-hero-dot.is-on { @apply w-6 bg-white; }
 
+  /* --- Store page: identity header ------------------------------------ */
+  /* White card matching the page's other panels; stats render as quiet
+     chips and social links as labelled pills. */
+
+  .store-head { @apply rounded-2xl bg-white p-5 sm:p-6; }
+  .store-head-stat {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600;
+  }
+  .store-head-stat svg { @apply h-3.5 w-3.5 flex-none text-gray-400; }
+  .store-head-stat strong { @apply font-semibold tabular-nums text-gray-800; }
+
+  .store-social {
+    @apply inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 text-sm font-medium text-gray-600;
+    transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+  }
+  .store-social:hover {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
   /* --- Store page: "Popular categories" cards ------------------------ */
+  /* Photo tiles with the category name captioned on the image (bottom
+     scrim), so the tile reads as a category — not just a product photo. */
 
   .store-cat-grid { @apply grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6; }
   .store-cat-card {
-    @apply relative block overflow-hidden rounded-xl border border-gray-200 bg-white;
+    @apply relative block overflow-hidden rounded-xl bg-gray-100;
     transition: box-shadow 180ms ease;
   }
   .store-cat-card:hover { @apply shadow-md; }
-  .store-cat-media { @apply relative aspect-[4/3] overflow-hidden bg-gray-100; }
+  .store-cat-media { @apply relative block aspect-[4/5] overflow-hidden; }
   .store-cat-img { @apply h-full w-full object-cover transition-transform duration-500; }
   .store-cat-card:hover .store-cat-img { transform: scale(1.05); }
   .store-cat-fallback {
@@ -698,13 +721,16 @@
       radial-gradient(125% 100% at 0% 0%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 58%),
       linear-gradient(160deg, #f3f4f6, #e2e5ea);
   }
-  .store-cat-body { @apply flex flex-col gap-0.5 p-3; }
-  .store-cat-name {
-    @apply text-sm font-semibold leading-tight text-gray-800;
-    transition: color 140ms ease;
+  .store-cat-scrim {
+    @apply absolute inset-0;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.62), rgb(0 0 0 / 0.08) 52%, rgb(0 0 0 / 0) 70%);
   }
-  .store-cat-card:hover .store-cat-name { color: var(--accent); }
-  .store-cat-count { @apply text-[11px] tabular-nums text-gray-400; }
+  .store-cat-caption { @apply absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-3 text-white; }
+  .store-cat-name {
+    @apply text-sm font-bold leading-tight sm:text-base;
+    text-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+  }
+  .store-cat-count { @apply text-[11px] font-medium tabular-nums text-white/80; }
 
   /* --- Floating "back to top" button --------------------------------- */
   /* Always in the DOM (so the fade-out plays); hidden state is inert via
