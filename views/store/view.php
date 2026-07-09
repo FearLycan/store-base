@@ -4,6 +4,7 @@
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array $current */
 /** @var app\models\Category[] $categories */
+/** @var app\models\Category|null $activeCategory */
 /** @var float $avgRating */
 /** @var bool $showcase */
 /** @var app\models\StoreBanner[] $banners */
@@ -16,17 +17,30 @@ use app\components\Seo;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$canonical = Url::to(['/store/view', 'slug' => $store->slug], true);
-Seo::apply($this, $store->name, 'Browse products sold by ' . $store->name . '.', $canonical);
+// Category-scoped view gets its own title, canonical (always the slug form,
+// so ?category=<id> variants dedupe onto /store/<slug>/<category>) and crumb.
+if ($activeCategory !== null) {
+    $canonical = Url::to(['/store/view', 'slug' => $store->slug, 'category' => $activeCategory->slug ?: $activeCategory->id], true);
+    Seo::apply($this, $activeCategory->name . ' — ' . $store->name, 'Browse ' . $activeCategory->name . ' sold by ' . $store->name . '.', $canonical);
+    $crumbs = [
+        ['name' => 'Home', 'url' => Url::to(['/catalog/index'])],
+        ['name' => $store->name, 'url' => Url::to(['/store/view', 'slug' => $store->slug])],
+        ['name' => $activeCategory->name, 'url' => null],
+    ];
+} else {
+    $canonical = Url::to(['/store/view', 'slug' => $store->slug], true);
+    Seo::apply($this, $store->name, 'Browse products sold by ' . $store->name . '.', $canonical);
+    $crumbs = [
+        ['name' => 'Home', 'url' => Url::to(['/catalog/index'])],
+        ['name' => $store->name, 'url' => null],
+    ];
+}
 $home = ['label' => 'Home', 'url' => Url::to(['/catalog/index'])];
 
 $arrow = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true" class="h-3.5 w-3.5"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 ?>
 <?= JsonLdRenderer::render(ListingPageSchemaBuilder::build($dataProvider, [], $home, $store->name, $store->name)) ?>
-<?= $this->render('//catalog/_partials/breadcrumbs', ['items' => [
-    ['name' => 'Home', 'url' => Url::to(['/catalog/index'])],
-    ['name' => $store->name, 'url' => null],
-]]) ?>
+<?= $this->render('//catalog/_partials/breadcrumbs', ['items' => $crumbs]) ?>
 
 <section class="store-head mb-6">
     <div class="flex flex-wrap items-center gap-4 sm:gap-5">
@@ -76,6 +90,8 @@ $arrow = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true" class="h-3.5 w
     <h2 class="mb-4 text-xl font-bold tracking-tight">All products</h2>
 <?php endif; ?>
 
-<?= $this->render('//catalog/_partials/filters', ['current' => $current, 'categories' => $categories, 'showCategory' => true, 'showStore' => false]) ?>
+<?php /* Explicit action: on /store/<slug>/<category> the path param would
+         override the form's own category select in query parsing. */ ?>
+<?= $this->render('//catalog/_partials/filters', ['current' => $current, 'categories' => $categories, 'showCategory' => true, 'showStore' => false, 'action' => Url::to(['/store/view', 'slug' => $store->slug])]) ?>
 <?= $this->render('//catalog/_partials/active-filters', ['current' => $current, 'total' => $dataProvider->totalCount, 'categories' => $categories]) ?>
 <?= $this->render('//catalog/_partials/_grid', ['dataProvider' => $dataProvider, 'empty' => 'No products from this store yet.']) ?>

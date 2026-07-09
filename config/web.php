@@ -70,6 +70,10 @@ $config = [
                 'aliexpress/callback'        => 'aliexpress/callback',
                 'category/<slug:[a-z0-9-]+>' => 'catalog/category',
                 'stores'                     => 'store/index',
+                // Category-scoped store page; the category segment must start
+                // with a letter so plain numeric ids (from the filter selects)
+                // stay in the query string instead of minting duplicate URLs.
+                'store/<slug:[a-z0-9-]+>/<category:[a-z][a-z0-9-]*>' => 'store/view',
                 'store/<slug:[a-z0-9-]+>'    => 'store/view',
                 'product/<id:\d+>/reviews'   => 'product/reviews',
                 'product/<slug:[a-z0-9-]+>'  => 'product/view',
