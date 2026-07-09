@@ -287,6 +287,16 @@ final class ProductImporter
 
     private function syncVariants(Product $product, array $variants, string $currency): void
     {
+        // Guard against a degraded detail fetch wiping good data: when the Dropshipping token has
+        // lapsed the x5sec scraper fallback is captcha-blocked, so {@see fetchDetail()} returns an
+        // empty bundle. A healthy DS response always carries at least the product's SKU rows, so an
+        // empty list here means "fetch failed", not "product genuinely has no variants" — keep the
+        // variants already stored instead of deleting them. A real re-sync (non-empty) still replaces
+        // the whole set below, so once DS is reconnected the next import repopulates them correctly.
+        if ($variants === []) {
+            return;
+        }
+
         ProductVariant::deleteAll(['product_id' => $product->id]);
         foreach ($variants as $v) {
             $row = new ProductVariant();
@@ -305,6 +315,12 @@ final class ProductImporter
 
     private function syncAttributes(Product $product, array $attributes): void
     {
+        // Same degraded-fetch guard as syncVariants(): don't wipe existing specs when the detail
+        // fetch came back empty (DS down + scraper blocked). A real re-sync replaces them wholesale.
+        if ($attributes === []) {
+            return;
+        }
+
         ProductAttribute::deleteAll(['product_id' => $product->id]);
         $position = 0;
         foreach ($attributes as $a) {
