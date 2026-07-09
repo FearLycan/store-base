@@ -630,6 +630,82 @@
   .cat-chip:hover .cat-chip-name { color: var(--accent); }
   .cat-chip-count { @apply -mt-1 text-[11px] tabular-nums text-gray-400; }
 
+  /* --- Store page: hero banner slider -------------------------------- */
+  /* Cross-fading stack of admin-managed banners. Slides are absolutely
+     stacked; .is-on fades one in. Autoplay is JS-side (and disabled under
+     prefers-reduced-motion there); the opacity fade below is gentle enough
+     to keep for manual navigation. */
+
+  .store-hero { @apply relative overflow-hidden rounded-2xl bg-gray-100; }
+  .store-hero-track { @apply relative aspect-[16/10] sm:aspect-[21/9]; }
+  .store-hero-slide {
+    @apply absolute inset-0 block;
+    opacity: 0;
+    transition: opacity 700ms ease;
+  }
+  .store-hero-slide.is-on { opacity: 1; z-index: 1; }
+  .store-hero-img { @apply h-full w-full object-cover; }
+  /* Legibility scrim: ink from the bottom-left corner where the copy sits. */
+  .store-hero-scrim {
+    @apply absolute inset-0;
+    background:
+      linear-gradient(to top, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0) 55%),
+      linear-gradient(to right, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0) 60%);
+  }
+  .store-hero-copy { @apply absolute inset-x-0 bottom-0 flex flex-col items-start p-5 text-white sm:p-8; }
+  .store-hero-title { @apply text-xl font-bold tracking-tight sm:text-3xl; text-shadow: 0 1px 8px rgb(0 0 0 / 0.35); }
+  .store-hero-sub { @apply mt-1 max-w-xl text-sm text-white/85 sm:text-base; }
+  .store-hero-cta {
+    @apply mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm;
+    background-color: var(--accent);
+    transition: filter 140ms ease;
+  }
+  .store-hero-slide:hover .store-hero-cta { filter: brightness(0.92); }
+
+  .store-hero-arrow {
+    @apply absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow-md backdrop-blur;
+    opacity: 0;
+    transition: opacity 180ms ease, color 140ms ease;
+  }
+  .store-hero:hover .store-hero-arrow,
+  .store-hero-arrow:focus-visible { opacity: 1; }
+  .store-hero-arrow:hover { color: var(--accent); }
+  .store-hero-prev { left: 0.75rem; }
+  .store-hero-next { right: 0.75rem; }
+
+  .store-hero-dots { @apply absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5; }
+  .store-hero-dot {
+    @apply h-1.5 w-4 rounded-full bg-white/50;
+    transition: background-color 200ms ease, width 200ms ease;
+  }
+  .store-hero-dot:hover { background-color: rgb(255 255 255 / 0.8); }
+  .store-hero-dot.is-on { @apply w-6 bg-white; }
+
+  /* --- Store page: "Popular categories" cards ------------------------ */
+
+  .store-cat-grid { @apply grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6; }
+  .store-cat-card {
+    @apply relative block overflow-hidden rounded-xl border border-gray-200 bg-white;
+    transition: box-shadow 180ms ease;
+  }
+  .store-cat-card:hover { @apply shadow-md; }
+  .store-cat-media { @apply relative aspect-[4/3] overflow-hidden bg-gray-100; }
+  .store-cat-img { @apply h-full w-full object-cover transition-transform duration-500; }
+  .store-cat-card:hover .store-cat-img { transform: scale(1.05); }
+  .store-cat-fallback {
+    @apply absolute inset-0;
+    background:
+      radial-gradient(125% 100% at 0% 0%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 58%),
+      linear-gradient(160deg, #f3f4f6, #e2e5ea);
+  }
+  .store-cat-body { @apply flex flex-col gap-0.5 p-3; }
+  .store-cat-name {
+    @apply text-sm font-semibold leading-tight text-gray-800;
+    transition: color 140ms ease;
+  }
+  .store-cat-card:hover .store-cat-name { color: var(--accent); }
+  .store-cat-count { @apply text-[11px] tabular-nums text-gray-400; }
+
   /* --- Floating "back to top" button --------------------------------- */
   /* Always in the DOM (so the fade-out plays); hidden state is inert via
      pointer-events. Sits under the sticky header (z-30) and search modal. */
