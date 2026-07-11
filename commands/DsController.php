@@ -45,7 +45,14 @@ final class DsController extends Controller
         }
 
         try {
-            $this->client->refreshAccessToken();
+            // Only one deployment on the host actually hits AE — the rest share the token via Redis, so
+            // a peer holding the lock (or Redis being down) makes this a safe no-op instead of a second
+            // refresh that would rotate the shared refresh_token out from under the others.
+            if (!$this->client->refreshTokenCoordinated()) {
+                $this->stdout("Another instance holds the refresh lock (or Redis is down) — skipping.\n");
+
+                return ExitCode::OK;
+            }
         } catch (Throwable $e) {
             $this->stderr("Refresh failed: {$e->getMessage()}\n");
             $this->stderr("If the refresh_token itself expired, re-authorize once via the OAuth flow "

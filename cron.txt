@@ -21,6 +21,14 @@ Token Dropshipping API odświeża się sam (klient robi refresh ~10 min przed
 wygaśnięciem przy każdym imporcie). Dopóki worker chodzi, nic nie trzeba
 robić ręcznie z tokenem.
 
+WIELE DOMEN NA JEDNYM SERWERZE — jeden token przez Redisa (opcjonalne):
+Każda domena to osobna aplikacja z własną bazą, ale klucz DS API jest jeden na
+wszystkie. Żeby instancje nie unieważniały sobie nawzajem (rotującego) refresh_
+tokenu, można je spiąć wspólnym Redisem: token żyje w Redisie, odświeża go tylko
+jedna instancja (lock), reszta go czyta. Bez konfiguracji Redisa każda apka działa
+po staremu (własny token w tabeli setting). Szczegóły: sekcja "Redis (współdzielony
+token)" na dole.
+
 Progi cadence (config/params.php):
   sync.discoveryIntervalHours    = 6    # jak często sklep jest "due" na discovery
   sync.priceRefreshIntervalDays  = 1    # po ilu dniach cena jest "stale"
@@ -126,6 +134,12 @@ NARZĘDZIA / DOBRE PRAKTYKI:
 # i wymusić ręczny OAuth. Ten wpis trzyma łańcuch żywy nawet na bezczynnym sklepie.
 0 */6 * * *    cd /var/www/store-base && php yii ds/refresh-token >> runtime/logs/ds.log 2>&1
 
+# Redis watchdog (TYLKO jeśli używasz wspólnego Redisa — patrz sekcja niżej):
+# proces Redisa na mydevil odpalasz ręcznie i może paść (restart serwera / koniec
+# sesji screen). Ten wpis podnosi go z powrotem, gdy nie odpowiada. Wystarczy na
+# JEDNEJ domenie (tej, która trzyma redis.conf). Podmień ścieżki LOGIN/DOMENA.
+*/5 * * * *    pgrep -f "redis-server .*redis.conf" >/dev/null || screen -dmS redis redis-server /usr/home/LOGIN/domains/DOMENA/redis.conf
+
 # Sitemap: regeneruje gzipowaną mapę strony. Raz na dobę (04:00), po syncach.
 0 4 * * *      cd /var/www/store-base && php yii sitemap/generate >> runtime/logs/sitemap.log 2>&1
 
@@ -177,3 +191,40 @@ docker exec store-base php yii user/create <username> <email>
 #        cloudflared tunnel --url http://localhost:8000
 #   2. Wejdź na admina PRZEZ adres tunelu → Settings → Dropshipping API → Connect.
 #   (AE wymaga https w redirect_uri, dlatego tunel; token potem jest trwały.)
+
+
+==============================================================================
+ Redis (współdzielony token DS między wieloma domenami)   [OPCJONALNE]
+==============================================================================
+Po co: wiele instancji na jednym serwerze dzieli JEDEN klucz DS API. Bez koordynacji
+każda odświeżałaby token osobno i unieważniała rotujący refresh_token pozostałym.
+Z Redisem: token żyje w Redisie, odświeża go tylko instancja, która zdobędzie lock,
+reszta go czyta. Awaria Redisa = każda apka jedzie na własnym (świeżym) tokenie z
+tabeli setting — nic się nie wywala, tylko chwilowo brak współdzielenia.
+
+Wymaga: klient predis (jest w composerze). Działa na jednym hoście (wspólny socket).
+
+KROK 1 — odpal Redisa RAZ (na jednej domenie), wg pomoc.mydevil.net/Redis/:
+  - w redis.conf ustaw:
+        port 0
+        unixsocket /usr/home/LOGIN/domains/DOMENA/redis.sock
+        requirepass  <DŁUGIE_WSPÓLNE_HASŁO>     # OBOWIĄZKOWE — inaczej inni
+                                                 # użytkownicy mydevil czytają token
+  - uruchom:  screen -dmS redis redis-server /usr/home/LOGIN/domains/DOMENA/redis.conf
+  - watchdog-cron (sekcja CRONTAB wyżej) podniesie go, gdyby padł.
+
+KROK 2 — w KAŻDEJ domenie (config/params-local.php) wpisz TE SAME wartości:
+        'redis.socket'    => '/usr/home/LOGIN/domains/DOMENA/redis.sock',
+        'redis.password'  => '<DŁUGIE_WSPÓLNE_HASŁO>',
+        'redis.namespace' => 'snagloft',   // identyczny wszędzie
+  Namespace/hasło/socket MUSZĄ być identyczne — inaczej apki nie współdzielą tokenu.
+
+KROK 3 — seed tokenu: token trafi do Redisa automatycznie przy pierwszym odświeżeniu.
+  Wymuś je od razu (na dowolnej połączonej instancji):
+        php yii ds/refresh-token
+  Od tej chwili wszystkie domeny czytają ten sam token. Sprawdź, że działa:
+        redis-cli -s /usr/home/LOGIN/domains/DOMENA/redis.sock -a '<HASŁO>' get snagloft:ds:token
+
+ROLLOUT jest bezpieczny: dopóki 'redis.socket' jest puste, apka działa jak dawniej
+(własny token per domena). Włączasz Redisa na jednej, sprawdzasz, potem dokładasz
+socket do reszty.

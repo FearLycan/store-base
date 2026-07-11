@@ -1,0 +1,60 @@
+# ============================================================================
+#  redis.conf — przykład dla store-base na mydevil (współdzielony token DS)
+# ============================================================================
+# Skopiuj do redis.conf w katalogu JEDNEJ domeny (tej, która trzyma Redisa),
+# podmień LOGIN / DOMENA / HASŁO, i odpal:
+#
+#     screen -dmS redis redis-server /usr/home/LOGIN/domains/DOMENA/redis.conf
+#
+# Watchdog-cron (patrz cron.txt) podniesie proces, gdyby padł.
+# Instrukcja hostingu: https://pomoc.mydevil.net/Redis/
+#
+# WSZĘDZIE gdzie jest LOGIN/DOMENA — wstaw swoje (to samo co w ścieżce wyżej).
+# ----------------------------------------------------------------------------
+
+# --- Sieć: TYLKO unix socket, żadnego TCP --------------------------------
+# port 0 wyłącza nasłuch na TCP — Redis gada wyłącznie przez plik-socket, więc
+# nie da się do niego dobić z sieci. To dokładnie ta ścieżka, której używa
+# RedisStore (scheme=unix).
+port 0
+unixsocket /usr/home/LOGIN/domains/DOMENA/redis.sock
+unixsocketperm 700
+
+# --- Hasło (OBOWIĄZKOWE na shared hostingu) ------------------------------
+# To NIE jest hasło do hostingu — to nowy, losowy sekret tylko dla Redisa.
+# Wygeneruj np.:  openssl rand -base64 32
+# Ta sama wartość musi trafić do 'redis.password' w params-local.php KAŻDEJ domeny.
+# Bez hasła każdy inny użytkownik mydevil odczyta twój token DS.
+requirepass ZMIEN_NA_DLUGIE_LOSOWE_HASLO
+
+# --- Pamięć i eviction ----------------------------------------------------
+# Token + garść kluczy cache to promile MB; 128mb to duży zapas na przyszły
+# cache produktów. Kluczowa jest POLITYKA: volatile-lru wyrzuca pod presją
+# pamięci TYLKO klucze z ustawionym TTL (czyli cache:product:*), a NIGDY
+# ds:token (bez TTL). Dzięki temu token nie może zostać "wyeksmitowany".
+maxmemory 128mb
+maxmemory-policy volatile-lru
+
+# --- Trwałość (żeby token przeżył restart Redisa) ------------------------
+# AOF = dziennik zapisów; po restarcie token/cache wracają. Snapshoty RDB jako
+# dodatkowy backup. Wszystko ląduje w katalogu domeny (dir niżej).
+dir /usr/home/LOGIN/domains/DOMENA/
+appendonly yes
+appendfilename "redis.aof"
+appendfsync everysec
+dbfilename redis.rdb
+save 900 1
+save 300 10
+
+# --- Proces / logi --------------------------------------------------------
+# daemonize no — odpalamy przez `screen -dmS`, więc proces trzyma sesja screen.
+# (Alternatywnie: daemonize yes + pidfile, i wtedy bez screena.)
+daemonize no
+pidfile /usr/home/LOGIN/domains/DOMENA/redis.pid
+loglevel notice
+logfile /usr/home/LOGIN/domains/DOMENA/redis.log
+
+# --- Higiena --------------------------------------------------------------
+# Bezczynne połączenia (klienci PHP kończą request i znikają) zamykaj po 5 min.
+timeout 300
+tcp-keepalive 0

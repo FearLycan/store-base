@@ -23,6 +23,15 @@ $params = [
     'aliexpress.targetLanguage'           => 'EN',
     'aliexpress.shipToCountry'            => 'US',
 
+    // --- Shared Redis (cross-deployment coordination of the DS OAuth token) ---
+    // All deployments on the host point at the SAME socket + password + namespace so they share one
+    // token: exactly one instance refreshes it, the rest read it. Empty socket = feature off (each app
+    // keeps its own token in the Setting table, i.e. the legacy behaviour). See AliExpressDsClient /
+    // DsTokenStore, and cron.txt → "Redis (współdzielony token)".
+    'redis.socket'                        => '',          // e.g. /usr/home/LOGIN/domains/DOMAIN/redis.sock — set in params-local
+    'redis.password'                      => '',          // set in params-local; REQUIRED on shared hosting (else other users read your token)
+    'redis.namespace'                     => 'snagloft',  // MUST be identical across every deployment that shares the token
+
     // --- AliExpress mtop (unofficial scraping for listing/detail/reviews) ---
     'aliexpress.mtop.appKey'              => '12574478',
     'aliexpress.mtop.lang'                => 'en_US',

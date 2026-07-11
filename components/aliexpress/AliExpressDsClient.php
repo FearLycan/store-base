@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace app\components\aliexpress;
 
-use app\models\Setting;
 use RuntimeException;
 use Yii;
-use yii\helpers\Json;
 use yii\httpclient\Client;
 
 /**
@@ -47,17 +45,19 @@ final class AliExpressDsClient
     private const TIMEOUT_RETRIES = 2;
 
     private Client $client;
+    private DsTokenStore $tokens;
 
-    public function __construct(?Client $client = null)
+    public function __construct(?Client $client = null, ?DsTokenStore $tokens = null)
     {
         $this->client = $client ?? new Client(['transport' => 'yii\httpclient\CurlTransport']);
+        $this->tokens = $tokens ?? new DsTokenStore();
     }
 
     // --- OAuth -------------------------------------------------------------
 
     public function isConnected(): bool
     {
-        return trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, '')) !== '';
+        return $this->tokens->isConnected();
     }
 
     /**
@@ -89,7 +89,7 @@ final class AliExpressDsClient
     /** Force a refresh using the stored refresh_token; persists the new tokens. */
     public function refreshAccessToken(): void
     {
-        $refresh = trim((string)Setting::get(Setting::DS_REFRESH_TOKEN, ''));
+        $refresh = $this->tokens->refreshToken();
         if ($refresh === '') {
             throw new RuntimeException('No Dropshipping refresh_token stored — re-authorize the Dropshipping API.');
         }
@@ -97,18 +97,35 @@ final class AliExpressDsClient
         $this->persistTokens($data);
     }
 
-    /** A valid access token, auto-refreshed when close to expiry. */
+    /**
+     * Refresh the shared token, but only if this instance wins the cross-deployment lock (or Redis is
+     * off entirely). Returns whether we actually refreshed; false means a peer owns the refresh — or
+     * Redis is down and we must not race it. Used by both the cron and the on-demand path below.
+     */
+    public function refreshTokenCoordinated(): bool
+    {
+        if (!$this->tokens->acquireRefreshLock()) {
+            return false;
+        }
+        $this->refreshAccessToken();
+
+        return true;
+    }
+
+    /** A valid access token, auto-refreshed (under the shared lock) when close to expiry. */
     public function accessToken(): string
     {
-        $token = trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, ''));
+        $token = $this->tokens->accessToken();
         if ($token === '') {
             throw new RuntimeException('Dropshipping API not connected — authorize it in admin (Settings → Dropshipping API).');
         }
 
-        $expiresAt = (int)Setting::get(Setting::DS_TOKEN_EXPIRES_AT, '0');
+        $expiresAt = $this->tokens->expiresAt();
         if ($expiresAt > 0 && ($expiresAt - time()) < self::REFRESH_SKEW) {
-            $this->refreshAccessToken();
-            $token = trim((string)Setting::get(Setting::DS_ACCESS_TOKEN, ''));
+            // Only the lock winner refreshes; everyone else re-reads, picking up a peer's fresh token if
+            // there is one, otherwise coasting on the current one (still valid — we refresh 10 min early).
+            $this->refreshTokenCoordinated();
+            $token = $this->tokens->accessToken();
         }
 
         return $token;
@@ -473,12 +490,7 @@ final class AliExpressDsClient
             throw new RuntimeException('Token exchange returned no access_token' . ($message !== '' ? ' (' . $message . ')' : '') . '.');
         }
 
-        Setting::set(Setting::DS_ACCESS_TOKEN, $access);
-
         $refresh = trim((string)($data['refresh_token'] ?? ''));
-        if ($refresh !== '') {
-            Setting::set(Setting::DS_REFRESH_TOKEN, $refresh);
-        }
 
         // `expires_in` is seconds; fall back to the absolute `expire_time` (epoch ms) when absent.
         if (isset($data['expires_in']) && is_numeric($data['expires_in'])) {
@@ -488,7 +500,9 @@ final class AliExpressDsClient
         } else {
             $expiresAt = time() + 3600;
         }
-        Setting::set(Setting::DS_TOKEN_EXPIRES_AT, (string)$expiresAt);
+
+        // Redis is the shared source of truth; the token store also mirrors into this app's Setting table.
+        $this->tokens->persist($access, $refresh !== '' ? $refresh : null, $expiresAt);
     }
 
     // --- helpers -----------------------------------------------------------

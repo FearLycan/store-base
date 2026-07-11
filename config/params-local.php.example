@@ -11,6 +11,13 @@ return [
     'aliexpress.appSecret' => '',   // your app secret
     'aliexpress.trackingId'=> '',   // your affiliate tracking id (required for affiliate links)
 
+    // --- Shared Redis (coordinates ONE DS token across all deployments on the host) ---
+    // Leave commented for a standalone install (each app keeps its own token). To share:
+    // set the SAME socket + password + namespace in EVERY deployment's params-local.
+    // 'redis.socket'    => '/usr/home/LOGIN/domains/DOMAIN/redis.sock',
+    // 'redis.password'  => 'a-long-shared-secret',   // required — without it any hosting user reads your token
+    // 'redis.namespace' => 'snagloft',               // identical everywhere, or they won't share
+
     // --- Region (per niche/market) ---
     // 'aliexpress.targetCurrency' => 'PLN',
     // 'aliexpress.targetLanguage' => 'PL',
