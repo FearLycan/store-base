@@ -244,7 +244,7 @@ $cfg = [
         <h1 class="text-2xl font-bold leading-snug"><?= Html::encode($product->displayName) ?></h1>
 
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <?= $this->render('//catalog/_partials/stars', ['value' => $product->rating_value, 'count' => $product->review_count]) ?>
+            <?= $this->render('//catalog/_partials/stars', ['value' => $product->rating_value, 'count' => $product->review_count, 'href' => '#customer-reviews']) ?>
             <?php if ((int) $product->orders_count > 0): ?>
                 <span class="text-sm text-gray-500"><?= number_format((int) $product->orders_count) ?> sold</span>
             <?php endif; ?>
@@ -614,7 +614,7 @@ foreach ($product->reviews as $r) {
         'ssrHtml'       => $this->render('_review-cards', ['cards' => array_map([\app\services\ReviewCardMapper::class, 'fromModel'], $revs), 'imgBase' => 0]),
     ];
     ?>
-    <section class="mt-10" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
+    <section id="customer-reviews" class="mt-10 scroll-mt-24" x-data="productReviews(<?= Html::encode(Json::encode($reviewsCfg)) ?>)">
         <h2 class="mb-4 text-xl font-bold">Customer reviews</h2>
 
         <!-- Summary: average + verified note + rating distribution -->
